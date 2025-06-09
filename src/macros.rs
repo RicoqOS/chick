@@ -1,4 +1,5 @@
 /// Print to console.
+#[cfg(target_os = "none")]
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => ({
