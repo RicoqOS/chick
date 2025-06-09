@@ -7,10 +7,10 @@ edition = "2024"
 bootloader = "0.9"
 bootloader_api = "0.11"
 
-lazy_static = { version = "*", features = ["spin_no_std"] }
+cfg-if = "1"
+x86_64 = "0.15"
+
+lazy_static = { version = "1.5", features = ["spin_no_std"] }
 volatile = "0.3"
 spin = "0.5.2"
 heapless = "0.8.0"
-
-x86_64 = "0.15"
-acpi = { version = "5.2", default-features = false }

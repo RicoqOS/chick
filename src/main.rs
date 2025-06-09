@@ -12,21 +12,26 @@ mod console;
 #[macro_use]
 mod macros;
 
-/// Panic.
-mod panic;
-
-/// Interrupt descriptor table for CPU interrupts.
-mod idt;
-
-mod time;
+/// Architecture-specific abstraction.
+mod arch;
 
 use bootloader_api::{BootInfo, entry_point};
+
 entry_point!(main);
 
 fn main(boot_info: &'static mut BootInfo) -> ! {
-    idt::IDT.load();
-
     print!("{boot_info:?}");
+    print!("\n");
 
+    arch::interrupts::load();
+
+    loop {}
+}
+
+/// Handle panics.
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    print!("\n");
+    print!("KERNEL PANIC: {info:?}");
     loop {}
 }
