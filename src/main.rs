@@ -5,9 +5,6 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-/// Priting.
-mod console;
-
 /// Macro-commands.
 #[macro_use]
 mod macros;
