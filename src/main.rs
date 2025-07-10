@@ -1,34 +1,30 @@
-//! kernel acts as the primary interface between hardware and software.
-//! kernel manages CPU time, allocates memory, and handles interrupts.
-//! it ensures secure multitasking and prevents unauthorized access.
-#![no_std]
-#![no_main]
-#![feature(abi_x86_interrupt)]
+//! Modified version of [bootloader example](https://github.com/rust-osdev/bootloader/blob/main/docs/create-disk-image.md).
 
-/// Macro-commands.
-#[macro_use]
-mod macros;
+fn main() {
+    // read env variables that were set in build script
+    let uefi_path = env!("UEFI_PATH");
+    let bios_path = env!("BIOS_PATH");
 
-/// Architecture-specific abstraction.
-mod arch;
+    // choose whether to start the UEFI or BIOS image
+    let uefi = if std::env::var("UEFI").is_ok() {
+        true
+    } else {
+        false
+    };
 
-use bootloader_api::{BootInfo, entry_point};
+    let mut cmd = std::process::Command::new("qemu-system-x86_64");
+    if uefi {
+        cmd.arg("-bios").arg(ovmf_prebuilt::ovmf_pure_efi());
+        cmd.arg("-drive")
+            .arg(format!("format=raw,file={uefi_path}"));
+    } else {
+        cmd.arg("-drive")
+            .arg(format!("format=raw,file={bios_path}"));
+    }
 
-entry_point!(main);
+    // Enable serial output.
+    cmd.arg("-serial").arg("stdio");
 
-fn main(boot_info: &'static mut BootInfo) -> ! {
-    print!("{boot_info:?}");
-    print!("\n");
-
-    arch::interrupts::load();
-
-    loop {}
-}
-
-/// Handle panics.
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    print!("\n");
-    print!("KERNEL PANIC: {info:?}");
-    loop {}
+    let mut child = cmd.spawn().unwrap();
+    child.wait().unwrap();
 }

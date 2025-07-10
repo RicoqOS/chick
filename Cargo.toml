@@ -1,16 +1,21 @@
+[workspace]
+members = ["src/kernel"]
+resolver = "2"
+
 [package]
-name = "kernel"
+name = "chick"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+opt-level = "s"
+strip = true
+lto = true
+panic = "abort"
+
+[build-dependencies]
+bootloader = "0.11"
+kernel = { path = "src/kernel", artifact = "bin", target = "x86_64-unknown-none" }
+
 [dependencies]
-bootloader = "0.9"
-bootloader_api = "0.11"
-
-lazy_static = { version = "1.5", features = ["spin_no_std"] }
-volatile = "0.3"
-spin = "0.5.2"
-heapless = "0.8.0"
-
-[target.'cfg(target_arch = "x86_64")'.dependencies]
-x86_64 = "0.15"
+ovmf-prebuilt = "0.1.0-alpha.1"
