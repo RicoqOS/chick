@@ -1,0 +1,10 @@
+Chick
+=====
+
+Simple micro-kernel.
+Only available for x86_64 for now, due to the crates used.
+
+* Logging,
+* Material interrupts,
+* Virtual memory,
+* Scheduling.
