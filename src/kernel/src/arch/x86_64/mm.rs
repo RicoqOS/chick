@@ -1,9 +1,12 @@
 extern crate alloc;
 
-use x86_64::{VirtAddr, PhysAddr};
-use x86_64::structures::paging::{PageTable, OffsetPageTable, PhysFrame, Size4KiB, FrameAllocator, Mapper, Page, PageTableFlags, mapper::MapToError};
-use bootloader_api::info::MemoryRegions;
 use bootloader_api::info::MemoryRegionKind::Usable;
+use bootloader_api::info::MemoryRegions;
+use x86_64::structures::paging::{
+    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
+    mapper::MapToError,
+};
+use x86_64::{PhysAddr, VirtAddr};
 
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::{
@@ -53,41 +56,45 @@ impl MemoryManagement {
         log::debug!("L4 entries: {:?}", page_table_ptr);
 
         let page_table_ptr = unsafe { &mut *page_table_ptr };
-        let offset_page_table = unsafe { OffsetPageTable::new(page_table_ptr, physical_memory_offset) };
+        let offset_page_table =
+            unsafe { OffsetPageTable::new(page_table_ptr, physical_memory_offset) };
 
-        Self {
-            offset_page_table,
-        }
+        Self { offset_page_table }
     }
 
     /// Init allocator.
-    pub fn allocate(mut self, memory_map: &'static MemoryRegions) -> Result<(), MapToError<Size4KiB>> {
+    pub fn allocate(
+        mut self,
+        memory_map: &'static MemoryRegions,
+    ) -> Result<(), MapToError<Size4KiB>> {
         let allocator = &mut BootInfoFrameAllocator::new(memory_map);
 
-            let page_range = {
-                let heap_start = VirtAddr::new(HEAP_START as u64);
-                let heap_end = heap_start + HEAP_SIZE as u64 - 1u64;
-                let heap_start_page = Page::containing_address(heap_start);
-                let heap_end_page = Page::containing_address(heap_end);
-                Page::range_inclusive(heap_start_page, heap_end_page)
-            };
-        
-            for page in page_range {
-                let frame = allocator
-                    .allocate_frame()
-                    .ok_or(MapToError::FrameAllocationFailed)?;
-                let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-                unsafe { self.offset_page_table.map_to(page, frame, flags, allocator)?.flush() };
-            }
-        
-            unsafe {
-                ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
-            }
+        let page_range = {
+            let heap_start = VirtAddr::new(HEAP_START as u64);
+            let heap_end = heap_start + HEAP_SIZE as u64 - 1u64;
+            let heap_start_page = Page::containing_address(heap_start);
+            let heap_end_page = Page::containing_address(heap_end);
+            Page::range_inclusive(heap_start_page, heap_end_page)
+        };
 
-            log::info!("mm initialized");
-        
-            Ok(())
+        for page in page_range {
+            let frame = allocator
+                .allocate_frame()
+                .ok_or(MapToError::FrameAllocationFailed)?;
+            let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+            unsafe {
+                self.offset_page_table
+                    .map_to(page, frame, flags, allocator)?
+                    .flush()
+            };
         }
+
+            ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
+
+        log::info!("mm initialized");
+
+        Ok(())
+    }
 }
 
 pub struct BootInfoFrameAllocator {
@@ -109,14 +116,10 @@ impl BootInfoFrameAllocator {
         let regions = self.memory_map.iter();
 
         let usable_regions = regions.filter(|region| region.kind == Usable);
-        let address_ranges =
-            usable_regions.map(|region| region.start..region.end);
-        let frame_addresses =
-            address_ranges.flat_map(|region| region.step_by(4096));
+        let address_ranges = usable_regions.map(|region| region.start..region.end);
+        let frame_addresses = address_ranges.flat_map(|region| region.step_by(4096));
 
-        frame_addresses.map(|address| {
-            PhysFrame::containing_address(PhysAddr::new(address))
-        })
+        frame_addresses.map(|address| PhysFrame::containing_address(PhysAddr::new(address)))
     }
 }
 
@@ -164,7 +167,10 @@ impl FixedSizeBlockAllocator {
     /// heap bounds are valid and that the heap is unused. This method must be
     /// called only once.
     pub fn init(&mut self, heap_start: usize, heap_size: usize) {
-        unsafe { self.fallback_allocator.init(heap_start as *mut u8, heap_size) };
+        unsafe {
+            self.fallback_allocator
+                .init(heap_start as *mut u8, heap_size)
+        };
     }
 
     /// Allocates using the fallback allocator.
@@ -191,9 +197,7 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                         let block_size = BLOCK_SIZES[index];
                         // only works if all block sizes are a power of 2
                         let block_align = block_size;
-                        let layout =
-                            Layout::from_size_align(block_size, block_align)
-                                .unwrap();
+                        let layout = Layout::from_size_align(block_size, block_align).unwrap();
                         allocator.fallback_alloc(layout)
                     }
                 }
@@ -202,6 +206,7 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
         }
     }
 
+    #[allow(unsafe_op_in_unsafe_fn)]
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         let mut allocator = self.lock();
         match list_index(&layout) {
@@ -214,7 +219,7 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                 assert!(mem::size_of::<ListNode>() <= BLOCK_SIZES[index]);
                 assert!(mem::align_of::<ListNode>() <= BLOCK_SIZES[index]);
                 let new_node_ptr = ptr as *mut ListNode;
-                new_node_ptr.write(new_node);
+                new_node_ptr.write(new_node) ;
                 allocator.list_heads[index] = Some(&mut *new_node_ptr);
             }
             None => {
