@@ -29,10 +29,15 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     );
     arch::interrupts::load();
 
-    /*
-    let physical_memory_offset = VirtAddr::new(boot_info.physical_memory_offset.into_option().unwrap());
+    let physical_memory_offset = VirtAddr::new(
+        boot_info
+            .physical_memory_offset
+            .into_option()
+            .expect("physical memory offset undefined"),
+    );
     let mm = arch::mm::MemoryManagement::new(physical_memory_offset);
-    print!("\n{:?}", mm);*/
+    mm.allocate(&boot_info.memory_regions)
+        .expect("failed page allocation");
 
     #[allow(clippy::empty_loop)]
     loop {}
