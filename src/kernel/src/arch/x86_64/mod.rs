@@ -8,4 +8,5 @@ pub mod console;
 pub mod interrupts;
 
 /// Virtual memory.
+/// Fixed-size with linked list fallback allocator.
 pub mod mm;
