@@ -14,14 +14,14 @@ use core::{
     ptr::{self, NonNull},
 };
 
-pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize = 1024 * 1024; // 1MB.
+const HEAP_START: usize = 0x_4444_4444_0000;
+const HEAP_SIZE: usize = 1024 * 1024; // 1MB.
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
 #[global_allocator]
 static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
-pub struct Locked<A> {
+struct Locked<A> {
     inner: spin::Mutex<A>,
 }
 
@@ -89,7 +89,7 @@ impl MemoryManagement {
             };
         }
 
-            ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
+        ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
 
         log::info!("mm initialized");
 
@@ -103,7 +103,7 @@ pub struct BootInfoFrameAllocator {
 }
 
 impl BootInfoFrameAllocator {
-    /// Create a new BootInfoFrameAllocator.
+    /// Create a new [`BootInfoFrameAllocator`].
     pub fn new(memory_map: &'static MemoryRegions) -> Self {
         BootInfoFrameAllocator {
             memory_map,
@@ -131,9 +131,6 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     }
 }
 
-/// Choose an appropriate block size for the given layout.
-///
-/// Returns an index into the `BLOCK_SIZES` array.
 fn list_index(layout: &Layout) -> Option<usize> {
     let required_block_size = layout.size().max(layout.align());
     BLOCK_SIZES.iter().position(|&s| s >= required_block_size)
@@ -151,7 +148,7 @@ pub struct FixedSizeBlockAllocator {
 }
 
 impl FixedSizeBlockAllocator {
-    /// Creates an empty FixedSizeBlockAllocator.
+    /// Creates an empty [`FixedSizeBlockAllocator`]`.
     pub const fn new() -> Self {
         const EMPTY: Option<&'static mut ListNode> = None;
         FixedSizeBlockAllocator {
@@ -193,9 +190,9 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                         node as *mut ListNode as *mut u8
                     }
                     None => {
-                        // no block exists in list => allocate new block
+                        // no block exists in list, allocate new block.
                         let block_size = BLOCK_SIZES[index];
-                        // only works if all block sizes are a power of 2
+                        // only works if all block sizes are a power of 2.
                         let block_align = block_size;
                         let layout = Layout::from_size_align(block_size, block_align).unwrap();
                         allocator.fallback_alloc(layout)
@@ -214,12 +211,10 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                 let new_node = ListNode {
                     next: allocator.list_heads[index].take(),
                 };
-                // verify that block has size and alignment required for storing
-                // node
                 assert!(mem::size_of::<ListNode>() <= BLOCK_SIZES[index]);
                 assert!(mem::align_of::<ListNode>() <= BLOCK_SIZES[index]);
                 let new_node_ptr = ptr as *mut ListNode;
-                new_node_ptr.write(new_node) ;
+                new_node_ptr.write(new_node);
                 allocator.list_heads[index] = Some(&mut *new_node_ptr);
             }
             None => {
