@@ -3,10 +3,13 @@
 //! it ensures secure multitasking and prevents unauthorized access.
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
+#![feature(abi_x86_interrupt, naked_functions)]
 
 /// Architecture-specific abstraction.
 mod arch;
+
+/// EDF scheduler.
+mod scheduler;
 
 use bootloader_api::config::Mapping;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
@@ -39,8 +42,9 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     mm.allocate(&boot_info.memory_regions)
         .expect("failed page allocation");
 
-    #[allow(clippy::empty_loop)]
-    loop {}
+    let mut executor = scheduler::executor::Executor::new();
+
+    executor.run()
 }
 
 /// Handle panics.
