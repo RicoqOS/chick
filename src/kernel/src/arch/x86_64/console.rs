@@ -9,7 +9,13 @@ pub fn init(framebuffer: FrameBuffer) {
     let info = framebuffer.info();
     let buffer = framebuffer.into_buffer();
 
-    init_logger(buffer, info, LevelFilter::Info, true, true);
+    let level = if cfg!(debug_assertions) {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Info
+    };
+
+    init_logger(buffer, info, level, true, true);
 
     log::info!("logger initialized");
 }
