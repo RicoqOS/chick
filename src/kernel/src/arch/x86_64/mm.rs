@@ -42,6 +42,7 @@ impl<A> Locked<A> {
 #[derive(Debug)]
 pub struct MemoryManagement {
     offset_page_table: OffsetPageTable<'static>,
+    allocator: Option<BootInfoFrameAllocator>,
 }
 
 impl MemoryManagement {
@@ -59,15 +60,21 @@ impl MemoryManagement {
         let offset_page_table =
             unsafe { OffsetPageTable::new(page_table_ptr, physical_memory_offset) };
 
-        Self { offset_page_table }
+        Self {
+            offset_page_table,
+            allocator: None,
+        }
     }
 
     /// Init allocator.
     pub fn allocate(
-        mut self,
+        &mut self,
         memory_map: &'static MemoryRegions,
     ) -> Result<(), MapToError<Size4KiB>> {
-        let allocator = &mut BootInfoFrameAllocator::new(memory_map);
+        let allocator = BootInfoFrameAllocator::new(memory_map);
+        self.allocator = Some(allocator);
+
+        let allocator = self.allocator.as_mut().unwrap();
 
         let page_range = {
             let heap_start = VirtAddr::new(HEAP_START as u64);
@@ -95,8 +102,18 @@ impl MemoryManagement {
 
         Ok(())
     }
+
+    /// Get a [`Mapper`] and [`BootInfoFrameAllocator`].
+    pub fn get_mapper_and_allocator(self) -> (OffsetPageTable<'static>, BootInfoFrameAllocator) {
+        (
+            self.offset_page_table,
+            self.allocator
+                .expect("allocate via `MemoryManagement` first"),
+        )
+    }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryRegions,
     next: usize,
@@ -137,6 +154,7 @@ fn list_index(layout: &Layout) -> Option<usize> {
 }
 
 /// A node in a singly-linked list.
+#[derive(Debug)]
 struct ListNode {
     /// The next node in the list.
     next: Option<&'static mut ListNode>,
