@@ -5,6 +5,8 @@
 #![no_main]
 #![feature(abi_x86_interrupt, naked_functions)]
 
+extern crate alloc;
+
 /// Architecture-specific abstraction.
 mod arch;
 
@@ -38,11 +40,38 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
             .into_option()
             .expect("physical memory offset undefined"),
     );
-    let mm = arch::mm::MemoryManagement::new(physical_memory_offset);
+    let mut mm = arch::mm::MemoryManagement::new(physical_memory_offset);
     mm.allocate(&boot_info.memory_regions)
         .expect("failed page allocation");
+    let (mut mapper, mut allocator) = mm.get_mapper_and_allocator();
+
+    let mut pit = arch::pit::Pit::new(core::time::Duration::from_millis(10));
+    pit.set_mode(arch::pit::ModeByte::InterruptOnTerminalCount);
+    log::error!("{:?}", pit.read());
+
+    let mut test = alloc::vec::Vec::with_capacity(2);
+    test.push(1);
+    test.push(2);
+    test.push(3);
+    log::error!("{test:?}");
+
+    log::error!("{:?}", pit.read());
+
+    let rsdp_addr = boot_info
+        .rsdp_addr
+        .take()
+        .expect("Failed to find RSDP address");
+
+    let _apic = arch::apic::Apic::new(
+        rsdp_addr as usize,
+        physical_memory_offset,
+        &mut mapper,
+        &mut allocator,
+    );
 
     let mut executor = scheduler::executor::Executor::new();
+
+    executor.spawn(scheduler::Task::new(async move { loop {} }));
 
     executor.run()
 }
