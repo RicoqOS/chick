@@ -15,6 +15,7 @@ mod scheduler;
 
 use bootloader_api::config::Mapping;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
+use spin::{Lazy, Mutex};
 use x86_64::VirtAddr;
 
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
@@ -22,6 +23,10 @@ pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     config.mappings.physical_memory = Some(Mapping::Dynamic);
     config
 };
+pub static APIC: Lazy<Mutex<arch::apic::Apic>> =
+    Lazy::new(|| Mutex::new(arch::apic::Apic::new()));
+pub static TICKS: Lazy<Mutex<arch::tick::Tick>> =
+    Lazy::new(|| Mutex::new(arch::tick::Tick::new()));
 
 entry_point!(main, config = &BOOTLOADER_CONFIG);
 
@@ -32,7 +37,6 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
             .take()
             .expect("framebuffer not usable"),
     );
-    arch::interrupts::load();
 
     let physical_memory_offset = VirtAddr::new(
         boot_info
@@ -45,32 +49,27 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
         .expect("failed page allocation");
     let (mut mapper, mut allocator) = mm.get_mapper_and_allocator();
 
-    let mut pit = arch::pit::Pit::new(core::time::Duration::from_millis(10));
-    pit.set_mode(arch::pit::ModeByte::InterruptOnTerminalCount);
-    log::error!("{:?}", pit.read());
-
-    let mut test = alloc::vec::Vec::with_capacity(2);
-    test.push(1);
-    test.push(2);
-    test.push(3);
-    log::error!("{test:?}");
-
-    log::error!("{:?}", pit.read());
-
     let rsdp_addr = boot_info
         .rsdp_addr
         .take()
         .expect("Failed to find RSDP address");
-
-    let _apic = arch::apic::Apic::new(
+    let apic = APIC.lock().init(
         rsdp_addr as usize,
         physical_memory_offset,
         &mut mapper,
         &mut allocator,
     );
+    *APIC.lock() = apic;
+
+    // Enable interrupts after disabling PIC.
+    arch::interrupts::load();
+
+    let ticks = TICKS.lock().clone().calibrate(apic);
+    *TICKS.lock() = ticks;
 
     let mut executor = scheduler::executor::Executor::new();
 
+    #[allow(clippy::empty_loop)]
     executor.spawn(scheduler::Task::new(async move { loop {} }));
 
     executor.run()

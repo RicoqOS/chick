@@ -18,9 +18,6 @@ impl Acpi {
     }
 }
 
-unsafe impl Send for Acpi {}
-unsafe impl Sync for Acpi {}
-
 impl AcpiHandler for Acpi {
     /// Map physical memory region to virtual memory.
     unsafe fn map_physical_region<T>(
@@ -34,7 +31,8 @@ impl AcpiHandler for Acpi {
         unsafe {
             PhysicalMapping::new(
                 physical_address,
-                NonNull::new(virt_addr.as_mut_ptr()).expect("failed to get virtual address"),
+                NonNull::new(virt_addr.as_mut_ptr())
+                    .expect("failed to get virtual address"),
                 size,
                 size,
                 *self,
@@ -44,3 +42,6 @@ impl AcpiHandler for Acpi {
 
     fn unmap_physical_region<T>(_region: &PhysicalMapping<Self, T>) {}
 }
+
+unsafe impl Send for Acpi {}
+unsafe impl Sync for Acpi {}
