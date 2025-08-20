@@ -19,3 +19,6 @@ pub mod pic;
 
 /// Programmable interval timer.
 pub mod pit;
+
+/// Handle PIT or LAPIC timer.
+pub mod tick;
