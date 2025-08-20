@@ -5,7 +5,8 @@ fn main() {
     let out_dir = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
     // set by cargo's artifact dependency feature, see
     // https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#artifact-dependencies
-    let kernel = PathBuf::from(std::env::var_os("CARGO_BIN_FILE_KERNEL").unwrap());
+    let kernel =
+        PathBuf::from(std::env::var_os("CARGO_BIN_FILE_KERNEL").unwrap());
 
     // create an UEFI disk image (optional)
     let uefi_path = out_dir.join("uefi.img");

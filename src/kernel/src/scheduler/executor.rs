@@ -1,12 +1,12 @@
 extern crate alloc;
 
-use spin::RwLock;
-
 use alloc::collections::{BTreeMap, BinaryHeap};
 use alloc::sync::Arc;
 use alloc::task::Wake;
 use core::cmp::Reverse;
 use core::task::{Context, Poll, Waker};
+
+use spin::RwLock;
 
 use super::{Task, TaskId};
 
@@ -36,7 +36,9 @@ impl Executor {
     pub fn new() -> Self {
         Executor {
             tasks: BTreeMap::new(),
-            task_queue: Arc::new(RwLock::new(BinaryHeap::with_capacity(DEFAULT_CAPACITY))),
+            task_queue: Arc::new(RwLock::new(BinaryHeap::with_capacity(
+                DEFAULT_CAPACITY,
+            ))),
             waker_cache: BTreeMap::new(),
         }
     }
@@ -90,17 +92,17 @@ impl Executor {
                 None => continue,
             };
 
-            let waker = waker_cache
-                .entry(task_id)
-                .or_insert_with(|| TaskWaker::new(task_id, task.deadline, task_queue.clone()));
+            let waker = waker_cache.entry(task_id).or_insert_with(|| {
+                TaskWaker::new(task_id, task.deadline, task_queue.clone())
+            });
 
             let mut context = Context::from_waker(waker);
             match task.future.as_mut().poll(&mut context) {
                 Poll::Ready(()) => {
                     tasks.remove(&task_id);
                     waker_cache.remove(&task_id);
-                }
-                Poll::Pending => {}
+                },
+                Poll::Pending => {},
             }
         }
     }
@@ -124,6 +126,7 @@ struct TaskWaker {
 }
 
 impl TaskWaker {
+    #[allow(clippy::new_ret_no_self)]
     fn new(task_id: TaskId, deadline: u64, task_queue: Queue) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,

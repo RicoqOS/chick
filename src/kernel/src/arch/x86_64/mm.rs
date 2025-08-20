@@ -1,25 +1,25 @@
 extern crate alloc;
 
+use alloc::alloc::{GlobalAlloc, Layout};
+use core::mem;
+use core::ptr::{self, NonNull};
+
 use bootloader_api::info::MemoryRegionKind::Usable;
 use bootloader_api::info::MemoryRegions;
+use x86_64::structures::paging::mapper::MapToError;
 use x86_64::structures::paging::{
-    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, PhysFrame, Size4KiB,
-    mapper::MapToError,
+    FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags,
+    PhysFrame, Size4KiB,
 };
 use x86_64::{PhysAddr, VirtAddr};
-
-use alloc::alloc::{GlobalAlloc, Layout};
-use core::{
-    mem,
-    ptr::{self, NonNull},
-};
 
 const HEAP_START: usize = 0x_4444_4444_0000;
 const HEAP_SIZE: usize = 1024 * 1024; // 1MB.
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048];
 
 #[global_allocator]
-static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> =
+    Locked::new(FixedSizeBlockAllocator::new());
 
 struct Locked<A> {
     inner: spin::Mutex<A>,
@@ -57,8 +57,9 @@ impl MemoryManagement {
         log::debug!("L4 entries: {:?}", page_table_ptr);
 
         let page_table_ptr = unsafe { &mut *page_table_ptr };
-        let offset_page_table =
-            unsafe { OffsetPageTable::new(page_table_ptr, physical_memory_offset) };
+        let offset_page_table = unsafe {
+            OffsetPageTable::new(page_table_ptr, physical_memory_offset)
+        };
 
         Self {
             offset_page_table,
@@ -104,7 +105,9 @@ impl MemoryManagement {
     }
 
     /// Get a [`Mapper`] and [`BootInfoFrameAllocator`].
-    pub fn get_mapper_and_allocator(self) -> (OffsetPageTable<'static>, BootInfoFrameAllocator) {
+    pub fn get_mapper_and_allocator(
+        self,
+    ) -> (OffsetPageTable<'static>, BootInfoFrameAllocator) {
         (
             self.offset_page_table,
             self.allocator
@@ -133,10 +136,14 @@ impl BootInfoFrameAllocator {
         let regions = self.memory_map.iter();
 
         let usable_regions = regions.filter(|region| region.kind == Usable);
-        let address_ranges = usable_regions.map(|region| region.start..region.end);
-        let frame_addresses = address_ranges.flat_map(|region| region.step_by(4096));
+        let address_ranges =
+            usable_regions.map(|region| region.start..region.end);
+        let frame_addresses =
+            address_ranges.flat_map(|region| region.step_by(4096));
 
-        frame_addresses.map(|address| PhysFrame::containing_address(PhysAddr::new(address)))
+        frame_addresses.map(|address| {
+            PhysFrame::containing_address(PhysAddr::new(address))
+        })
     }
 }
 
@@ -206,17 +213,19 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                     Some(node) => {
                         allocator.list_heads[index] = node.next.take();
                         node as *mut ListNode as *mut u8
-                    }
+                    },
                     None => {
                         // no block exists in list, allocate new block.
                         let block_size = BLOCK_SIZES[index];
                         // only works if all block sizes are a power of 2.
                         let block_align = block_size;
-                        let layout = Layout::from_size_align(block_size, block_align).unwrap();
+                        let layout =
+                            Layout::from_size_align(block_size, block_align)
+                                .unwrap();
                         allocator.fallback_alloc(layout)
-                    }
+                    },
                 }
-            }
+            },
             None => allocator.fallback_alloc(layout),
         }
     }
@@ -234,11 +243,11 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                 let new_node_ptr = ptr as *mut ListNode;
                 new_node_ptr.write(new_node);
                 allocator.list_heads[index] = Some(&mut *new_node_ptr);
-            }
+            },
             None => {
                 let ptr = NonNull::new(ptr).unwrap();
                 allocator.fallback_allocator.deallocate(ptr, layout);
-            }
+            },
         }
     }
 }

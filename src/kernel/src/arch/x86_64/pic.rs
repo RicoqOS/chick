@@ -4,6 +4,7 @@ const PIC_1_PORT: u16 = 0x21;
 const PIC_2_PORT: u16 = 0xA1;
 
 /// PIC manager.
+#[derive(Debug, Clone)]
 pub struct Pic {
     pic1: Port<u8>,
     pic2: Port<u8>,
