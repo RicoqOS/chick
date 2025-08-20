@@ -52,9 +52,6 @@ impl Tick {
             self.end_calibration();
         } else {
             self.ticks += 1;
-            if self.ticks % 100 == 0 {
-                log::info!("{}", self.ticks);
-            }
             // Do something.
         }
     }
@@ -103,7 +100,6 @@ impl Tick {
         self.calibration.push(cycles as u32);
 
         if self.calibration.len() >= 20 {
-            log::info!("{:?}", self.calibration);
             let cycles_mean = self.calibration.iter().sum::<u32>() /
                 self.calibration.len() as u32;
             log::info!(
