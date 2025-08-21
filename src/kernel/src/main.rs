@@ -31,6 +31,7 @@ pub static TICKS: Lazy<Mutex<arch::tick::Tick>> =
 entry_point!(main, config = &BOOTLOADER_CONFIG);
 
 fn main(boot_info: &'static mut BootInfo) -> ! {
+    #[cfg(feature = "framebuffer")]
     arch::console::init(
         boot_info
             .framebuffer
@@ -78,6 +79,12 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 /// Handle panics.
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
+    #[cfg(feature = "framebuffer")]
+    if let Some(logger) = arch::console::logger::LOGGER.get() {
+        unsafe { logger.framebuffer.force_unlock() };
+        logger.framebuffer.try_lock().unwrap().panic_screen();
+        unsafe { logger.framebuffer.force_unlock() };
+    }
     log::error!("KERNEL PANIC: {info:?}");
     loop {}
 }

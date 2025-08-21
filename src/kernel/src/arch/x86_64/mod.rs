@@ -5,7 +5,11 @@ pub mod apic;
 pub mod acpi;
 
 /// Console logger.
+#[cfg(feature = "framebuffer")]
 pub mod console;
+
+/// x86 constants.
+pub mod constants;
 
 /// Interrupt descriptor table for CPU interrupts.
 pub mod interrupts;
