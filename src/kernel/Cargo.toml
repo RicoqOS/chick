@@ -13,7 +13,6 @@ noto-sans-mono-bitmap = { version = "0.3", optional = true }
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 bootloader_api = "0.11"
 x86_64 = "0.15"
-x86 = "0.52"
 acpi = "5.2.0"
 
 [features]
