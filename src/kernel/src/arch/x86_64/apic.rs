@@ -4,6 +4,7 @@ use x86_64::structures::paging::{FrameAllocator, Mapper, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
 use crate::arch::pic;
+use crate::arch::constants::apic::*;
 
 fn has_apic() -> bool {
     let xd_bit: u32 = 1 << 9;
@@ -27,8 +28,8 @@ fn enable_io_apic(addr: VirtAddr) {
 fn enable_lapic(addr: VirtAddr) {
     let ptr = addr.as_mut_ptr::<u32>();
     unsafe {
-        let svr = ptr.offset(0xF0 / 4);
-        svr.write_volatile(svr.read_volatile() | 0x100);
+        let svr = ptr.offset(ApicRegister::LapicSivr as isize / 4);
+        svr.write_volatile(svr.read_volatile() | ApicValue::SvrEnable as u32);
     };
 }
 
@@ -151,13 +152,13 @@ impl Apic {
         let ptr = self.lapic_addr.as_mut_ptr::<u32>();
 
         unsafe {
-            let lvtt = ptr.offset(0x320 / 4);
+            let lvtt = ptr.offset(ApicRegister::LapicLvtt as isize / 4);
             lvtt.write_volatile(0x20 | ((periodic as u32) << 17));
 
-            let tdcr = ptr.offset(0x3E0 / 4);
-            tdcr.write_volatile(0x1);
+            let tdcr = ptr.offset(ApicRegister::LapicTdcr as isize / 4);
+            tdcr.write_volatile(ApicValue::TdcrDivideBy1 as u32);
 
-            let ticr = ptr.offset(0x380 / 4);
+            let ticr = ptr.offset(ApicRegister::LapicTicr as isize / 4);
             ticr.write_volatile(ticks);
         };
 
@@ -166,13 +167,13 @@ impl Apic {
 
     pub fn read_counter(&self) -> u32 {
         let ptr = self.lapic_addr.as_mut_ptr::<u32>();
-        unsafe { ptr.add(0x390 / 4).read_volatile() }
+        unsafe { ptr.add(ApicRegister::LapicTccr as usize / 4).read_volatile() }
     }
 
     pub fn end_interrupt(&self) {
         unsafe {
             let ptr = self.lapic_addr.as_mut_ptr::<u32>();
-            ptr.offset(0xB0 / 4).write_volatile(0);
+            ptr.offset(ApicRegister::LapicEoi as isize / 4).write_volatile(0);
         }
     }
 }

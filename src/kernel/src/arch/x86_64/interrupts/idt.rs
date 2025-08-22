@@ -3,7 +3,7 @@ use x86_64::structures::idt::{
     InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode,
 };
 
-use super::gdt::IstIndex;
+use crate::arch::constants::interrupts::*;
 use crate::{APIC, TICKS};
 
 lazy_static! {
@@ -30,7 +30,7 @@ lazy_static! {
         }
 
         // Custom vectors.
-        idt[0x20].set_handler_fn(timer_handler);
+        idt[IdtIndex::Timer as u8].set_handler_fn(timer_handler);
 
         idt
     };

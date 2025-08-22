@@ -6,15 +6,9 @@ use x86_64::registers::segmentation::{DS, ES, FS, GS, SS, SegmentSelector};
 use x86_64::structures::gdt::{Descriptor, GlobalDescriptorTable};
 use x86_64::structures::tss::TaskStateSegment;
 
-const STACK_SIZE: usize = 4096 * 5;
+use crate::arch::constants::interrupts::IstIndex;
 
-/// IST vector.
-#[derive(Debug, Clone, Copy)]
-pub enum IstIndex {
-    DoubleFault = 0,
-    NonMaskableInterrupt = 1,
-    MachineCheck = 2,
-}
+const STACK_SIZE: usize = 4096 * 5;
 
 /// Task state segment.
 pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
