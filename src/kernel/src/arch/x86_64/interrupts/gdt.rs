@@ -33,7 +33,12 @@ pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {
         stack_start + STACK_SIZE as u64
     };
 
-    // Add privilege stack table before developping userland.
+    // Privilege stack table for userland calls.
+    tss.privilege_stack_table[0] =  {
+        static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
+        let stack_start = VirtAddr::from_ptr(addr_of!(STACK));
+        stack_start + STACK_SIZE as u64
+    };
 
     tss
 });
