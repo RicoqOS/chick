@@ -1,63 +1,39 @@
-/// Enum des registres et valeurs pour LAPIC et IOAPIC afin d'éviter les magic numbers.
-/// Chaque variante est documentée pour expliquer son usage.
+/// LAPIC and IOAPIC registers and values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum ApicRegister {
-    // --- LAPIC Registers ---
-
-    /// Register du Spurious Interrupt Vector (SVR).
-    /// Sert à activer le LAPIC et à définir le vecteur d'interruption pour les interruptions "spurious".
+    /// Enables the LAPIC and defines the spurious interrupt vector.
     LapicSivr = 0xF0,
-
-    /// Register du Local Vector Table Timer (LVTT).
-    /// Permet de configurer le timer local du LAPIC (mode, vecteur...).
-    LapicLvtt = 0x320,
-
-    /// Register du Timer Divide Configuration (TDCR).
-    /// Permet de configurer le diviseur de fréquence du timer.
-    LapicTdcr = 0x3E0,
-
-    /// Register du Timer Initial Count (TICR).
-    /// Permet de charger la valeur initiale du compteur du timer.
-    LapicTicr = 0x380,
-
-    /// Register du Timer Current Count (TCCR).
-    /// Permet de lire la valeur courante du compteur du timer.
-    LapicTccr = 0x390,
-
-    /// Register End Of Interrupt (EOI).
-    /// Sert à signaler la fin du traitement d'une interruption au LAPIC.
+    /// End of interrupt register (EOI).
     LapicEoi = 0xB0,
 
-    // --- IOAPIC Registers ---
+    /// Local vector table timer (LVTT).
+    LapicLvtt = 0x320,
+    /// Timer divide configuration register (TDCR).
+    LapicTdcr = 0x3E0,
+    /// Timer initial count register (TICR).
+    LapicTicr = 0x380,
+    /// Timer current count register (TCCR).
+    LapicTccr = 0x390,
 
-    /// Register IOAPIC Identification.
-    /// Sert à lire l'identifiant de l'IOAPIC.
-    IoapicId = 0x0,
-
-    /// Register IOAPIC Version.
-    /// Sert à lire la version de l'IOAPIC.
+    /// IOAPIC identification register.
+    IoApicId = 0x0,
+    /// IOAPIC version register.
     IoapicVersion = 0x1,
-
-    /// Register IOAPIC Arbitration ID.
-    /// Sert à lire l'identifiant d'arbitrage de l'IOAPIC.
+    /// IOAPIC arbitration ID register.
     IoapicArbId = 0x2,
-
-    /// Register IOAPIC Redirection Table.
-    /// Base pour configurer le mapping des interruptions externes.
+    /// IOAPIC redirection table base.
     IoapicRedirectionTableBase = 0x10,
 }
 
-/// Enum des valeurs spécifiques pour certains registres APIC/IOAPIC.
+/// Specific APIC and IOAPIC registers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum ApicValue {
-    /// Valeur à écrire dans TDCR (Timer Divide Configuration Register) pour diviser par 1.
+    /// Divide by 1 TDCR value.
     TdcrDivideBy1 = 0x1,
-
-    /// Bit à positionner dans SVR pour activer le LAPIC.
+    /// Enable LAPIC.
     SvrEnable = 0x100,
-
-    /// Valeur d'activation typique pour le LVTT, avec le bit 5 (periodic) optionnel.
+    /// Base LVTT value; bit 5 (periodic) may be set optionally.
     LvttBase = 0x20,
 }
