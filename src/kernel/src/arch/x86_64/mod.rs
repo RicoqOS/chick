@@ -26,3 +26,16 @@ pub mod pit;
 
 /// Handle PIT or LAPIC timer.
 pub mod tick;
+
+/// Halt CPU.
+/// Disable interrupts if no task is scheduled or awaiting.
+pub fn halt(is_task_queue_empty: bool) {
+    use x86_64::instructions::interrupts::{self, enable_and_hlt};
+
+    interrupts::disable();
+    if is_task_queue_empty {
+        enable_and_hlt();
+    } else {
+        interrupts::enable();
+    }
+}

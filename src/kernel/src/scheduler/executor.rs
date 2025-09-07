@@ -8,6 +8,7 @@ use core::task::{Context, Poll, Waker};
 
 use spin::RwLock;
 
+use crate::arch;
 use super::{Task, TaskId};
 
 type Queue = Arc<RwLock<BinaryHeap<Reverse<DeadlineEntry>>>>;
@@ -108,14 +109,7 @@ impl Executor {
     }
 
     fn sleep_if_idle(&self) {
-        use x86_64::instructions::interrupts::{self, enable_and_hlt};
-
-        interrupts::disable();
-        if self.task_queue.read().is_empty() {
-            enable_and_hlt();
-        } else {
-            interrupts::enable();
-        }
+        arch::halt(self.task_queue.read().is_empty());
     }
 }
 
