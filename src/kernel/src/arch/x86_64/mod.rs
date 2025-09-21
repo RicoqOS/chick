@@ -39,3 +39,24 @@ pub fn halt(is_task_queue_empty: bool) {
         interrupts::enable();
     }
 }
+
+/// System data.
+pub struct System {
+    pub cores: u32,
+}
+
+/// Return system data.
+pub fn sysinfo() -> System {
+    let cores = {
+        use core::arch::x86_64::__cpuid;
+        let cpuid = unsafe { __cpuid(4) };
+        ((cpuid.eax >> 26) & 0x3f) + 1
+    };
+    System { cores }
+}
+
+/// Return current core ID.
+pub fn cpuid() -> u32 {
+    let cpuid = unsafe { core::arch::x86_64::__cpuid(1) };
+    (cpuid.ebx >> 24) & 0xff
+}

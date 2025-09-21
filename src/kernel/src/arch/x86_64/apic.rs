@@ -3,8 +3,8 @@ use core::arch::x86_64::__cpuid;
 use x86_64::structures::paging::{FrameAllocator, Mapper, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::arch::pic;
 use crate::arch::constants::apic::*;
+use crate::arch::pic;
 
 fn has_apic() -> bool {
     let xd_bit: u32 = 1 << 9;
@@ -167,13 +167,17 @@ impl Apic {
 
     pub fn read_counter(&self) -> u32 {
         let ptr = self.lapic_addr.as_mut_ptr::<u32>();
-        unsafe { ptr.add(ApicRegister::LapicTccr as usize / 4).read_volatile() }
+        unsafe {
+            ptr.add(ApicRegister::LapicTccr as usize / 4)
+                .read_volatile()
+        }
     }
 
     pub fn end_interrupt(&self) {
         unsafe {
             let ptr = self.lapic_addr.as_mut_ptr::<u32>();
-            ptr.offset(ApicRegister::LapicEoi as isize / 4).write_volatile(0);
+            ptr.offset(ApicRegister::LapicEoi as isize / 4)
+                .write_volatile(0);
         }
     }
 }

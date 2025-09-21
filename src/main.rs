@@ -21,6 +21,8 @@ fn main() {
     // Enable serial output.
     cmd.arg("-serial").arg("stdio");
 
+    cmd.arg("-smp").arg("cores=4");
+
     let mut child = cmd.spawn().unwrap();
     child.wait().unwrap();
 }
