@@ -68,7 +68,9 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let ticks = TICKS.lock().clone().calibrate(apic);
     *TICKS.lock() = ticks;
 
-    let mut executor = scheduler::executor::Executor::new();
+    scheduler::init_scheduler();
+
+    let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 
     #[allow(clippy::empty_loop)]
     executor.spawn(scheduler::Task::new(async move { loop {} }));

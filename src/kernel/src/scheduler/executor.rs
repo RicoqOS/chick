@@ -8,8 +8,8 @@ use core::task::{Context, Poll, Waker};
 
 use spin::RwLock;
 
-use crate::arch;
 use super::{Task, TaskId};
+use crate::arch;
 
 type Queue = Arc<RwLock<BinaryHeap<Reverse<DeadlineEntry>>>>;
 
@@ -31,6 +31,14 @@ pub struct Executor {
     /// Cache of wakers for tasks.
     waker_cache: BTreeMap<TaskId, Waker>,
 }
+
+impl Default for Executor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+unsafe impl Sync for Executor {}
 
 impl Executor {
     /// Create a new [`Executor`].

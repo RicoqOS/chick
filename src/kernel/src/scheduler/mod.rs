@@ -8,7 +8,24 @@ use core::pin::Pin;
 use core::sync::atomic::{AtomicU64, Ordering};
 use core::task::{Context, Poll};
 
+use crate::scheduler::percore::PerCore;
+use crate::scheduler::sync::OnceLock;
+
+/// Scheduler.
 pub mod executor;
+/// Unsafe percore manipulation.
+mod percore;
+/// Safe `OnceLock`-like.
+mod sync;
+
+pub static SCHEDULER: OnceLock<PerCore<executor::Executor>> = OnceLock::new();
+
+/// Inits per-core scheduler.
+pub fn init_scheduler() {
+    let cores = crate::arch::sysinfo().cores as usize;
+    let _ = SCHEDULER.set(PerCore::new(cores));
+    log::info!("{cores} schedulers initialized");
+}
 
 /// A unique identifier for a task.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -28,7 +45,7 @@ pub struct Task {
     deadline: u64,
     /// A unique identifier for the task.
     id: TaskId,
-    /// The future that the task will execute
+    /// The future that the task will execute.
     future: Pin<Box<dyn Future<Output = ()>>>,
 }
 
