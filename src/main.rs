@@ -21,7 +21,10 @@ fn main() {
     // Enable serial output.
     cmd.arg("-serial").arg("stdio");
 
+    cmd.arg("-m").arg("50M");
     cmd.arg("-smp").arg("cores=4");
+    cmd.arg("-monitor")
+        .arg("telnet:127.0.0.1:7000,server,nowait");
 
     let mut child = cmd.spawn().unwrap();
     child.wait().unwrap();
