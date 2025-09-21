@@ -3,15 +3,14 @@ extern crate alloc;
 use alloc::collections::{BTreeMap, BinaryHeap};
 use alloc::sync::Arc;
 use alloc::task::Wake;
+use core::cell::UnsafeCell;
 use core::cmp::Reverse;
 use core::task::{Context, Poll, Waker};
-
-use spin::RwLock;
 
 use super::{Task, TaskId};
 use crate::arch;
 
-type Queue = Arc<RwLock<BinaryHeap<Reverse<DeadlineEntry>>>>;
+type Queue = UnsafeCell<BinaryHeap<Reverse<DeadlineEntry>>>;
 
 /// Default amount of tasks in queue.
 const DEFAULT_CAPACITY: usize = 100;
@@ -45,9 +44,9 @@ impl Executor {
     pub fn new() -> Self {
         Executor {
             tasks: BTreeMap::new(),
-            task_queue: Arc::new(RwLock::new(BinaryHeap::with_capacity(
+            task_queue: UnsafeCell::new(BinaryHeap::with_capacity(
                 DEFAULT_CAPACITY,
-            ))),
+            )),
             waker_cache: BTreeMap::new(),
         }
     }
@@ -64,9 +63,8 @@ impl Executor {
             panic!("task with same ID already in tasks");
         }
 
-        self.task_queue
-            .write()
-            .push(Reverse(DeadlineEntry { deadline, task_id }));
+        let queue = unsafe { &mut *self.task_queue.get() };
+        queue.push(Reverse(DeadlineEntry { deadline, task_id }))
     }
 
     /// Run the executor.
@@ -87,7 +85,7 @@ impl Executor {
 
         loop {
             let next_entry = {
-                let mut queue = task_queue.write();
+                let queue = unsafe { &mut *task_queue.get() };
                 queue.pop()
             };
 
@@ -102,7 +100,7 @@ impl Executor {
             };
 
             let waker = waker_cache.entry(task_id).or_insert_with(|| {
-                TaskWaker::new(task_id, task.deadline, task_queue.clone())
+                TaskWaker::new(task_id, task.deadline, task_queue as *mut _)
             });
 
             let mut context = Context::from_waker(waker);
@@ -117,19 +115,23 @@ impl Executor {
     }
 
     fn sleep_if_idle(&self) {
-        arch::halt(self.task_queue.read().is_empty());
+        arch::halt(unsafe { (*self.task_queue.get()).is_empty() });
     }
 }
 
 struct TaskWaker {
     task_id: TaskId,
     deadline: u64,
-    task_queue: Queue,
+    task_queue: *mut Queue,
 }
+
+// Since scheduler is per-core, it shouldn't be transfered to another thread.
+unsafe impl Sync for TaskWaker {}
+unsafe impl Send for TaskWaker {}
 
 impl TaskWaker {
     #[allow(clippy::new_ret_no_self)]
-    fn new(task_id: TaskId, deadline: u64, task_queue: Queue) -> Waker {
+    fn new(task_id: TaskId, deadline: u64, task_queue: *mut Queue) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,
             deadline,
@@ -138,7 +140,8 @@ impl TaskWaker {
     }
 
     fn wake_task(&self) {
-        self.task_queue.write().push(Reverse(DeadlineEntry {
+        let queue = unsafe { (*self.task_queue).get_mut() };
+        queue.push(Reverse(DeadlineEntry {
             deadline: self.deadline,
             task_id: self.task_id,
         }));
