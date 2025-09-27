@@ -13,6 +13,9 @@ mod arch;
 /// EDF-like scheduler.
 mod scheduler;
 
+/// 
+mod syscall;
+
 use bootloader_api::config::Mapping;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use spin::{Lazy, Mutex};
@@ -69,6 +72,12 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     *TICKS.lock() = ticks;
 
     scheduler::init_scheduler();
+
+    // Enable syscalls.
+    fn aa() {}
+    let addr = aa as *const ();
+    let vaddr = VirtAddr::new(addr as u64);
+    arch::syscall::init_syscall(vaddr);
 
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 

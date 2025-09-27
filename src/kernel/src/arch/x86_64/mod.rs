@@ -27,6 +27,9 @@ pub mod pit;
 /// Handle PIT or LAPIC timer.
 pub mod tick;
 
+/// syscall, sysret handler.
+pub mod syscall;
+
 /// Halt CPU.
 /// Disable interrupts if no task is scheduled or awaiting.
 pub fn halt(is_task_queue_empty: bool) {
