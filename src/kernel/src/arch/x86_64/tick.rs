@@ -21,6 +21,7 @@ fn set_ioapic_pit_interrupt(apic: Apic) {
     apic.ioapic_write(low_index, low_value);
 }
 
+/// Tick handler.
 #[derive(Debug, Clone)]
 pub struct Tick {
     apic: Apic,
@@ -52,7 +53,11 @@ impl Tick {
             self.end_calibration();
         } else {
             self.ticks += 1;
-            // Do something.
+            crate::scheduler::SCHEDULER
+                .get()
+                .expect("scheduler not initialized")
+                .get_mut()
+                .preempt();
         }
     }
 

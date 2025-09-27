@@ -10,7 +10,7 @@ extern crate alloc;
 /// Architecture-specific abstraction.
 mod arch;
 
-/// EDF scheduler.
+/// EDF-like scheduler.
 mod scheduler;
 
 use bootloader_api::config::Mapping;
@@ -73,7 +73,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 
     #[allow(clippy::empty_loop)]
-    executor.spawn(scheduler::Task::new(async move { loop {} }));
+    executor.spawn(scheduler::Task::new(u64::MAX, async move { loop {} }));
 
     executor.run()
 }
@@ -83,9 +83,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
 fn panic(info: &core::panic::PanicInfo) -> ! {
     #[cfg(feature = "framebuffer")]
     if let Some(logger) = arch::console::logger::LOGGER.get() {
-        unsafe { logger.framebuffer.force_unlock() };
         logger.framebuffer.try_lock().unwrap().panic_screen();
-        unsafe { logger.framebuffer.force_unlock() };
     }
     log::error!("KERNEL PANIC: {info:?}");
     loop {}

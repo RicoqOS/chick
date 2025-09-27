@@ -1,5 +1,3 @@
-extern crate alloc;
-
 use alloc::collections::{BTreeMap, BinaryHeap};
 use alloc::sync::Arc;
 use alloc::task::Wake;
@@ -13,9 +11,9 @@ use crate::arch;
 type Queue = UnsafeCell<BinaryHeap<Reverse<DeadlineEntry>>>;
 
 /// Default amount of tasks in queue.
-const DEFAULT_CAPACITY: usize = 100;
+const DEFAULT_CAPACITY: usize = 20;
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
 struct DeadlineEntry {
     deadline: u64,
     task_id: TaskId,
@@ -23,12 +21,14 @@ struct DeadlineEntry {
 
 /// Task executor that drives tasks to completion.
 pub struct Executor {
-    /// Binary tree of running tasks.
-    tasks: BTreeMap<TaskId, Task>,
-    /// Priority queue of tasks (min-heap on deadline).
+    tasks: BTreeMap<TaskId, TaskSlot>,
     task_queue: Queue,
-    /// Cache of wakers for tasks.
-    waker_cache: BTreeMap<TaskId, Waker>,
+    current_task: Option<DeadlineEntry>,
+}
+
+struct TaskSlot {
+    task: Task,
+    waker: Option<Waker>,
 }
 
 impl Default for Executor {
@@ -40,82 +40,129 @@ impl Default for Executor {
 unsafe impl Sync for Executor {}
 
 impl Executor {
-    /// Create a new [`Executor`].
+    /// Create new [`Executor`].
+    #[must_use]
     pub fn new() -> Self {
         Executor {
             tasks: BTreeMap::new(),
             task_queue: UnsafeCell::new(BinaryHeap::with_capacity(
                 DEFAULT_CAPACITY,
             )),
-            waker_cache: BTreeMap::new(),
+            current_task: None,
         }
     }
 
     /// Spawn a new task.
     ///
     /// # Safety
-    /// * panics if the task ID is already in the executor
+    /// * panics if the task ID is already in the executor.
     pub fn spawn(&mut self, task: Task) {
         let task_id = task.id;
         let deadline = task.deadline;
 
-        if self.tasks.insert(task_id, task).is_some() {
+        if self.tasks.contains_key(&task_id) {
             panic!("task with same ID already in tasks");
         }
 
+        self.tasks.insert(task_id, TaskSlot { task, waker: None });
+
         let queue = unsafe { &mut *self.task_queue.get() };
-        queue.push(Reverse(DeadlineEntry { deadline, task_id }))
+        queue.push(Reverse(DeadlineEntry { deadline, task_id }));
     }
 
-    /// Run the executor.
-    pub fn run(&mut self) -> ! {
-        loop {
-            self.run_ready_tasks();
-            self.sleep_if_idle();
+    fn handle_waker_task(&mut self, entry: &DeadlineEntry) {
+        let slot = match self.tasks.get_mut(&entry.task_id) {
+            Some(s) => s,
+            None => return,
+        };
+
+        let waker = slot.waker.get_or_insert_with(|| {
+            TaskWaker::new(
+                entry.task_id,
+                entry.deadline,
+                &mut self.task_queue as *mut _,
+            )
+        });
+
+        let mut context = Context::from_waker(waker);
+        match slot.task.future.as_mut().poll(&mut context) {
+            Poll::Ready(()) => {
+                log::debug!("task {} finished", entry.task_id.0);
+                self.tasks.remove(&entry.task_id);
+                self.current_task = None;
+            },
+            Poll::Pending => unimplemented!(),
         }
     }
 
-    /// Run all tasks that are ready to run.
-    fn run_ready_tasks(&mut self) {
-        let Self {
-            tasks,
-            task_queue,
-            waker_cache,
-        } = self;
+    /// Preempt current task if another with higher priority exists.
+    pub fn preempt(&mut self) {
+        let queue = unsafe { &mut *self.task_queue.get() };
+        let next_entry = queue.peek().copied();
 
+        let Some(current_task) = self.current_task.as_ref() else {
+            self.run_ready_tasks();
+            return;
+        };
+
+        let Some(Reverse(entry)) = next_entry else {
+            return;
+        };
+
+        if entry.deadline < current_task.deadline {
+            log::info!(
+                "preempting task #{} (deadline {}) for task #{} (deadline {})",
+                current_task.task_id.0,
+                current_task.deadline,
+                entry.task_id.0,
+                entry.deadline
+            );
+
+            let _ = queue.pop();
+
+            // Weirdly freeze if task id is 0.
+            let task_id = match current_task.task_id.0 {
+                0 => crate::scheduler::TaskId(1),
+                _ => current_task.task_id,
+            };
+            queue.push(Reverse(DeadlineEntry {
+                deadline: current_task.deadline,
+                task_id,
+            }));
+
+            self.current_task = Some(entry);
+            self.handle_waker_task(&entry);
+        }
+    }
+
+    /// Run all tasks ready to run.
+    fn run_ready_tasks(&mut self) {
         loop {
             let next_entry = {
-                let queue = unsafe { &mut *task_queue.get() };
+                let queue = unsafe { &mut *self.task_queue.get() };
                 queue.pop()
             };
 
-            let task_id = match next_entry {
-                Some(Reverse(entry)) => entry.task_id,
+            let queued_task = match next_entry {
+                Some(Reverse(entry)) => entry,
                 None => break,
             };
 
-            let task = match tasks.get_mut(&task_id) {
-                Some(task) => task,
-                None => continue,
-            };
-
-            let waker = waker_cache.entry(task_id).or_insert_with(|| {
-                TaskWaker::new(task_id, task.deadline, task_queue as *mut _)
-            });
-
-            let mut context = Context::from_waker(waker);
-            match task.future.as_mut().poll(&mut context) {
-                Poll::Ready(()) => {
-                    tasks.remove(&task_id);
-                    waker_cache.remove(&task_id);
-                },
-                Poll::Pending => {},
-            }
+            self.current_task = Some(queued_task);
+            self.handle_waker_task(&queued_task);
         }
     }
 
     fn sleep_if_idle(&self) {
         arch::halt(unsafe { (*self.task_queue.get()).is_empty() });
+    }
+
+    /// Like `run_ready_tasks` but sleeps if no task is ready.
+    pub fn run(&mut self) -> ! {
+        loop {
+            self.run_ready_tasks();
+            self.sleep_if_idle();
+        }
     }
 }
 
@@ -125,12 +172,11 @@ struct TaskWaker {
     task_queue: *mut Queue,
 }
 
-// Since scheduler is per-core, it shouldn't be transfered to another thread.
 unsafe impl Sync for TaskWaker {}
 unsafe impl Send for TaskWaker {}
 
 impl TaskWaker {
-    #[allow(clippy::new_ret_no_self)]
+    #[must_use]
     fn new(task_id: TaskId, deadline: u64, task_queue: *mut Queue) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,

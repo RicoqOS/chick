@@ -15,7 +15,7 @@ use crate::scheduler::sync::OnceLock;
 pub mod executor;
 /// Unsafe percore manipulation.
 mod percore;
-/// Safe `OnceLock`-like.
+/// `OnceLock`-like.
 mod sync;
 
 pub static SCHEDULER: OnceLock<PerCore<executor::Executor>> = OnceLock::new();
@@ -51,9 +51,12 @@ pub struct Task {
 
 impl Task {
     /// Create a new task from a future.
-    pub fn new(future: impl Future<Output = ()> + 'static) -> Task {
+    pub fn new(
+        deadline: u64,
+        future: impl Future<Output = ()> + 'static,
+    ) -> Task {
         Task {
-            deadline: u64::MAX,
+            deadline,
             id: TaskId::new(),
             future: Box::pin(future),
         }
