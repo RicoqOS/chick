@@ -1,5 +1,5 @@
 /// Global descriptor table.
-mod gdt;
+pub mod gdt;
 
 /// Interrupt descriptor table.
 mod idt;
