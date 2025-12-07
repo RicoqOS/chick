@@ -119,16 +119,7 @@ impl Executor {
             );
 
             let _ = queue.pop();
-
-            // Weirdly freeze if task id is 0.
-            let task_id = match current_task.task_id.0 {
-                0 => crate::scheduler::TaskId(1),
-                _ => current_task.task_id,
-            };
-            queue.push(Reverse(DeadlineEntry {
-                deadline: current_task.deadline,
-                task_id,
-            }));
+            queue.push(Reverse(*current_task));
 
             self.current_task = Some(entry);
             self.handle_waker_task(&entry);
@@ -177,6 +168,7 @@ unsafe impl Send for TaskWaker {}
 
 impl TaskWaker {
     #[must_use]
+    #[allow(clippy::new_ret_no_self)]
     fn new(task_id: TaskId, deadline: u64, task_queue: *mut Queue) -> Waker {
         Waker::from(Arc::new(TaskWaker {
             task_id,

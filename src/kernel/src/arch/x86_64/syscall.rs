@@ -8,8 +8,8 @@ use crate::arch::interrupts::gdt::GDT;
 
 /// Set method handler for syscalls.
 pub fn init_syscall() {
-    let user_cs = GDT.1.user_code_selector.0 as u16;
-    let kernel_cs = GDT.1.code_selector.0 as u16;
+    let user_cs = GDT.1.user_code_selector.0;
+    let kernel_cs = GDT.1.code_selector.0;
 
     log::debug!("selectors are {user_cs} (user) and {kernel_cs} (kernel)");
 
@@ -50,35 +50,37 @@ pub struct Regs {
 }
 
 #[naked]
-unsafe extern "C" fn syscall_stub() {
-    naked_asm!(
-        "swapgs", // switch GS -> kernel
-        // Save fallbakcs.
-        "push rcx", // user RIP.
-        "push r11", // user RFLAGS.
-        // Build register on stack.
-        "push r10",
-        "push r9",
-        "push r8",
-        "push rdx",
-        "push rsi",
-        "push rdi",
-        "push rax",
-        "mov rdi, rsp",
-        "call syscall_entry",
-        // Restore stack.
-        "pop rax",
-        "pop rdi",
-        "pop rsi",
-        "pop rdx",
-        "pop r8",
-        "pop r9",
-        "pop r10",
-        "pop r11",
-        "pop rcx",
-        "swapgs",
-        "sysretq",
-    )
+extern "C" fn syscall_stub() {
+    unsafe {
+        naked_asm!(
+            "swapgs", // switch GS -> kernel
+            // Save fallbakcs.
+            "push rcx", // user RIP.
+            "push r11", // user RFLAGS.
+            // Build register on stack.
+            "push r10",
+            "push r9",
+            "push r8",
+            "push rdx",
+            "push rsi",
+            "push rdi",
+            "push rax",
+            "mov rdi, rsp",
+            "call syscall_entry",
+            // Restore stack.
+            "pop rax",
+            "pop rdi",
+            "pop rsi",
+            "pop rdx",
+            "pop r8",
+            "pop r9",
+            "pop r10",
+            "pop r11",
+            "pop rcx",
+            "swapgs",
+            "sysretq",
+        )
+    }
 }
 
 #[unsafe(no_mangle)]
