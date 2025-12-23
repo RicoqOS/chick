@@ -16,6 +16,13 @@ mod scheduler;
 /// Syscalls.
 mod syscall;
 
+/// Custom kernel errors.
+mod error;
+
+/// Custom macrocommands.
+#[macro_use]
+mod macros;
+
 use bootloader_api::config::Mapping;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use spin::{Lazy, Mutex};
