@@ -30,6 +30,9 @@ pub mod tick;
 /// syscall, sysret handler.
 pub mod syscall;
 
+/// Trap frame.
+pub mod trapframe;
+
 /// Halt CPU.
 /// Disable interrupts if no task is scheduled or awaiting.
 pub fn halt(is_task_queue_empty: bool) {
