@@ -8,7 +8,7 @@ macro_rules! bit {
 #[macro_export]
 macro_rules! mask {
     ($x:expr) => {
-        !bit!($x) - 1
+        $crate::bit!($x) - 1
     };
 }
 
@@ -20,8 +20,8 @@ macro_rules! symbol {
 }
 
 #[macro_export]
-macro_rules! ALIGNUP {
+macro_rules! alignup {
     ($addr:expr, $sz: expr) => {
-        (($addr) + !bit!($sz) - 1) & (!mask!($sz))
+        (($addr) + $crate::bit!($sz) - 1) & ($crate::mask!($sz))
     };
 }
