@@ -5,9 +5,8 @@ use core::slice;
 
 use crate::objects::traits::KernelObject;
 
-/// Type d'objet noyau (fortement inspiré de seL4, mais réduit)
-#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum ObjType {
     NullObj = 0,
     Untyped = 1,
@@ -328,7 +327,7 @@ impl CSpace {
             let guard_val = (idx >> shift_guard) & guard_mask;
 
             if guard_bits > 0 &&
-                guard_val != (cur_cap.guard() >> shift_guard & guard_mask)
+                guard_val != (cur_cap.guard() >> shift_guard) & guard_mask
             {
                 return Err(LookupError::GuardMismatch);
             }
