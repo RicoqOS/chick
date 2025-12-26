@@ -2,8 +2,7 @@
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]
 pub enum SysError {
-    OK = 0,
-    CSpaceNotFound,
+    CSpaceNotFound = 1,
     CapabilityTypeError,
     LookupError,
     UnableToDerive,
