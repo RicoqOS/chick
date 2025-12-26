@@ -5,21 +5,8 @@ use x86_64::registers::rflags::RFlags;
 #[derive(Debug, Clone, Copy)]
 #[repr(C, packed)]
 pub struct TrapFrame {
-    pub rax: usize,
-    pub rbx: usize,
-    pub rcx: usize,
-    pub rdx: usize,
-    pub rsi: usize,
-    pub rdi: usize,
-    pub rbp: usize,
-    pub r8: usize,
-    pub r9: usize,
-    pub r10: usize,
-    pub r11: usize,
-    pub r12: usize,
-    pub r13: usize,
-    pub r14: usize,
-    pub r15: usize,
+    /// Registers in order: rax, rbx, rcx, rdx, rsi, rdi, rbp, r8-r15.
+    pub registers: [usize; 15],
 
     // Error code (pushed bu CPU or by stub).
     pub error_code: usize,
@@ -38,6 +25,7 @@ impl TrapFrame {
         unsafe { core::mem::zeroed() }
     }
 
+    /// Restore userland context after context switching.
     pub unsafe fn restore(&mut self) -> ! {
         asm!(
             "mov rsp, {ptr}",
@@ -50,5 +38,10 @@ impl TrapFrame {
             ptr = in(reg) self,
             options(noreturn)
         );
+    }
+
+    /// Set message register.
+    pub fn set_mr(&mut self, idx: usize, mr: usize) {
+        self.registers[idx] = mr;
     }
 }
