@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-pub const MAX_CPUS: usize = 0;
+pub const MAX_CPUS: usize = 16;
 
 use crate::arch::cpuid;
 
