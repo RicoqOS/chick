@@ -1,4 +1,4 @@
-use crate::objects::capacity::CapRef;
+use crate::objects::capability::CapRef;
 
 #[derive(Debug)]
 pub enum NullObj {}

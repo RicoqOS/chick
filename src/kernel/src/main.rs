@@ -10,6 +10,9 @@ extern crate alloc;
 /// Architecture-specific abstraction.
 mod arch;
 
+/// seL4-like capabilities objects.
+mod objects;
+
 /// EDF-like scheduler.
 mod scheduler;
 
@@ -86,7 +89,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 
     #[allow(clippy::empty_loop)]
-    executor.spawn(scheduler::Task::new(u64::MAX, async move { loop {} }));
+    executor.spawn(scheduler::task::Task::new(None, async move { loop {} }));
 
     executor.run()
 }

@@ -1,23 +1,23 @@
-//! A simple notion of a task, which is a future that can be polled by an
-//! executor.
-extern crate alloc;
-
-use alloc::boxed::Box;
-use core::future::Future;
-use core::pin::Pin;
-use core::sync::atomic::{AtomicU64, Ordering};
-use core::task::{Context, Poll};
-
-use crate::scheduler::percore::PerCore;
-use crate::scheduler::sync::OnceLock;
+//! Access for scheduler.
 
 /// Scheduler.
 pub mod executor;
+
 /// Unsafe percore manipulation.
 mod percore;
+
 /// `OnceLock`-like.
 mod sync;
 
+/// Light Rust futures.
+pub mod task;
+
+use crate::objects::tcb::Tcb;
+use crate::scheduler::percore::PerCore;
+use crate::scheduler::sync::OnceLock;
+use crate::scheduler::task::Task;
+
+pub const NCPU: usize = 4;
 pub static SCHEDULER: OnceLock<PerCore<executor::Executor>> = OnceLock::new();
 
 /// Inits per-core scheduler.
@@ -27,43 +27,7 @@ pub fn init_scheduler() {
     log::info!("{cores} schedulers initialized");
 }
 
-/// A unique identifier for a task.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct TaskId(u64);
-
-impl TaskId {
-    /// Create a new, unique task ID.
-    fn new() -> Self {
-        static NEXT_ID: AtomicU64 = AtomicU64::new(0);
-        TaskId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
-    }
-}
-
-/// A task that can be executed by an executor.
-pub struct Task {
-    /// RTOS only.
-    deadline: u64,
-    /// A unique identifier for the task.
-    id: TaskId,
-    /// The future that the task will execute.
-    future: Pin<Box<dyn Future<Output = ()>>>,
-}
-
-impl Task {
-    /// Create a new task from a future.
-    pub fn new(
-        deadline: u64,
-        future: impl Future<Output = ()> + 'static,
-    ) -> Task {
-        Task {
-            deadline,
-            id: TaskId::new(),
-            future: Box::pin(future),
-        }
-    }
-
-    /// Poll the task.
-    fn poll(&mut self, context: &mut Context) -> Poll<()> {
-        self.future.as_mut().poll(context)
-    }
+pub struct Thread {
+    tcb: Tcb,
+    task: Task, // userland/kernel future.
 }

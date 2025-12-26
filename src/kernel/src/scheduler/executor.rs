@@ -5,8 +5,8 @@ use core::cell::UnsafeCell;
 use core::cmp::Reverse;
 use core::task::{Context, Poll, Waker};
 
-use super::{Task, TaskId};
 use crate::arch;
+use crate::scheduler::task::{Task, TaskId};
 
 type Queue = UnsafeCell<BinaryHeap<Reverse<DeadlineEntry>>>;
 
@@ -15,8 +15,8 @@ const DEFAULT_CAPACITY: usize = 20;
 
 #[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
 struct DeadlineEntry {
-    deadline: u64,
-    task_id: TaskId,
+    pub deadline: u64,
+    pub task_id: TaskId,
 }
 
 /// Task executor that drives tasks to completion.
@@ -58,7 +58,11 @@ impl Executor {
     /// * panics if the task ID is already in the executor.
     pub fn spawn(&mut self, task: Task) {
         let task_id = task.id;
-        let deadline = task.deadline;
+        let deadline = unsafe {
+            task.tcb
+                .map(|tcb| tcb.as_ref().sched_context.unwrap().as_ref().deadline)
+                .unwrap_or(u64::MAX)
+        };
 
         if self.tasks.contains_key(&task_id) {
             panic!("task with same ID already in tasks");
