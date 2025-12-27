@@ -40,7 +40,7 @@ pub struct CapRef<'a, T: KernelObject + ?Sized> {
     pub cap_type: PhantomData<T>,
 }
 
-impl<'a, T: KernelObject + ?Sized> CapRef<'a, T> {
+impl<T: KernelObject + ?Sized> CapRef<'_, T> {
     pub fn cap_type(&self) -> ObjType {
         debug_assert_eq!(T::OBJ_TYPE, self.raw.get().cap_type);
         T::OBJ_TYPE
@@ -49,14 +49,6 @@ impl<'a, T: KernelObject + ?Sized> CapRef<'a, T> {
     #[cfg(target_arch = "x86_64")]
     pub fn paddr(&self) -> x86_64::PhysAddr {
         x86_64::PhysAddr::new(self.raw.get().paddr as u64)
-    }
-
-    fn _retype<U: KernelObject + ?Sized>(self) -> CapRef<'a, U> {
-        debug_assert_eq!(U::OBJ_TYPE, self.raw.get().cap_type);
-        CapRef {
-            raw: self.raw,
-            cap_type: PhantomData,
-        }
     }
 }
 

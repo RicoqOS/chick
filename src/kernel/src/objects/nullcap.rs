@@ -32,7 +32,7 @@ impl<'a> CapRef<'a, NullObj> {
     }
 
     pub fn identify(&self, tcb: &mut Tcb) -> usize {
-        tcb.set_mr(1, self.cap_type() as usize);
+        tcb.set_mr(Tcb::MR1, self.cap_type() as usize);
         1
     }
 }

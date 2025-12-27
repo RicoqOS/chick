@@ -139,8 +139,10 @@ impl Tcb {
 pub type TcbCap<'a> = CapRef<'a, Tcb>;
 
 impl TcbCap<'_> {
-    pub fn mint(paddr: usize) -> CapRaw {
-        CapRaw::default_with_type(ObjType::Tcb)
+    pub const fn mint(paddr: usize) -> CapRaw {
+        let mut capraw = CapRaw::default_with_type(ObjType::Tcb);
+        capraw.paddr = paddr;
+        capraw
     }
 
     pub fn identify(&self, tcb: &mut Tcb) -> usize {

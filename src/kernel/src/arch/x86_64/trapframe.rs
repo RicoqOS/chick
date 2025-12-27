@@ -10,7 +10,7 @@ pub struct TrapFrame {
     /// Registers in order: rax, rbx, rcx, rdx, rsi, rdi, rbp, r8-r15.
     pub registers: [usize; REGISTERS_SIZE],
 
-    // Error code (pushed bu CPU or by stub).
+    // Error code (pushed by CPU or by stub).
     pub error_code: usize,
 
     // Automatically saved by CPU.
@@ -46,7 +46,10 @@ impl TrapFrame {
 
     /// Set message register.
     pub fn set_mr(&mut self, idx: usize, mr: usize) {
-        debug_assert!(idx > 0 && idx < REGISTERS_SIZE, "invalid MR index");
+        debug_assert!(
+            idx > 0 && idx < REGISTERS_SIZE,
+            "MR index out of bounds"
+        );
         self.registers[idx] = mr;
     }
 }

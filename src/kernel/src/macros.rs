@@ -22,6 +22,6 @@ macro_rules! symbol {
 #[macro_export]
 macro_rules! alignup {
     ($addr:expr, $sz: expr) => {
-        (($addr) + $crate::bit!($sz) - 1) & ($crate::mask!($sz))
+        (($addr) + $crate::bit!($sz) - 1) & !$crate::mask!($sz)
     };
 }

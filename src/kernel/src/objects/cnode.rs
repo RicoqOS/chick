@@ -78,7 +78,7 @@ impl CNodeEntry {
                 let entry = ptr.as_ref();
                 let mut raw = entry.get();
                 cur = raw.mdb_next;
-                // Erease capability.
+                // Erase capability.
                 raw.cap_type = ObjType::NullObj;
                 raw.rights = CapRights::NONE;
                 raw.paddr = 0;

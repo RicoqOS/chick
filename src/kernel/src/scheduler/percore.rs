@@ -19,8 +19,8 @@ impl<T> PerCore<T> {
     where
         F: FnMut() -> T,
     {
-        if cpu_id + 1 > MAX_CPUS {
-            log::warn!("core {cpu_id} outbound max cores ({MAX_CPUS})");
+        if cpu_id >= MAX_CPUS {
+            log::warn!("core {cpu_id} is out of bounds (max is {MAX_CPUS})");
             return;
         }
 
