@@ -1,3 +1,5 @@
+//! Thread control blocks.
+
 use core::ptr::NonNull;
 
 use crate::arch::trapframe::TrapFrame;

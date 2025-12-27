@@ -7,22 +7,11 @@
 
 extern crate alloc;
 
-/// Architecture-specific abstraction.
 mod arch;
-
-/// seL4-like capabilities objects.
 mod objects;
-
-/// EDF-like scheduler.
 mod scheduler;
-
-/// Syscalls.
 mod syscall;
-
-/// Custom kernel errors.
 mod error;
-
-/// Custom macrocommands.
 #[macro_use]
 mod macros;
 

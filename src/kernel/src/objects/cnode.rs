@@ -1,3 +1,5 @@
+//! Capability nodes with MDB.
+
 use core::cell::Cell;
 use core::marker::PhantomData;
 use core::ptr::NonNull;

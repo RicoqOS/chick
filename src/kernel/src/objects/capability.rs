@@ -1,3 +1,5 @@
+//! Defines core capability types, rights, and CSpace lookup algorithm.
+
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 

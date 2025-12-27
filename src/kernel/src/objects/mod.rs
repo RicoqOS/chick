@@ -1,3 +1,5 @@
+//! seL4-like capabilities objects.
+
 mod capability;
 mod cnode;
 mod nullcap;

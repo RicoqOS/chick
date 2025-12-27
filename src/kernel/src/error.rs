@@ -1,3 +1,5 @@
+//! Custom kernel errors.
+
 /// Custom system error.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(C)]

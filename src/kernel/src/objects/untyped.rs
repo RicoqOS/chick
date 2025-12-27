@@ -1,3 +1,5 @@
+//! Untyped memory objects and retype operations.
+
 use crate::error::{Result, SysError};
 use crate::objects::capability::*;
 use crate::objects::cnode::{CNODE_ENTRY_BIT_SZ, CNodeEntry, CNodeObj};

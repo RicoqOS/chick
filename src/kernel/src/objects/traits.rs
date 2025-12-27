@@ -1,3 +1,5 @@
+//! Type safety.
+
 use crate::objects::capability::ObjType;
 use crate::objects::cnode::CNodeObj;
 use crate::objects::nullcap::NullObj;

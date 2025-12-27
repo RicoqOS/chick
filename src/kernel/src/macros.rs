@@ -1,3 +1,5 @@
+//! Custom macrocommands.
+
 #[macro_export]
 macro_rules! bit {
     ($x:expr) => {

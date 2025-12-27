@@ -1,4 +1,4 @@
-//! Access for scheduler.
+//! EDF-like scheduler.
 
 /// Scheduler.
 pub mod executor;

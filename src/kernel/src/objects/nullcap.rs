@@ -1,3 +1,5 @@
+//! Null capabilities.
+
 use core::marker::PhantomData;
 
 use crate::objects::capability::{CapRaw, CapRef};

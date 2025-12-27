@@ -1,3 +1,5 @@
+//! Syscalls definition.
+
 use alloc::vec::Vec;
 use core::fmt;
 
