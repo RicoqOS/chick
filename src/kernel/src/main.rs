@@ -7,19 +7,11 @@
 
 extern crate alloc;
 
-/// Architecture-specific abstraction.
 mod arch;
-
-/// EDF-like scheduler.
+mod objects;
 mod scheduler;
-
-/// Syscalls.
 mod syscall;
-
-/// Custom kernel errors.
 mod error;
-
-/// Custom macrocommands.
 #[macro_use]
 mod macros;
 
@@ -86,7 +78,7 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 
     #[allow(clippy::empty_loop)]
-    executor.spawn(scheduler::Task::new(u64::MAX, async move { loop {} }));
+    executor.spawn(scheduler::task::Task::new(None, async move { loop {} }));
 
     executor.run()
 }
