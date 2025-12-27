@@ -8,7 +8,7 @@ macro_rules! bit {
 #[macro_export]
 macro_rules! mask {
     ($x:expr) => {
-        $crate::bit!($x) - 1
+        ($crate::bit!($x) - 1)
     };
 }
 

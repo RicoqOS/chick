@@ -12,12 +12,9 @@ mod sync;
 /// Light Rust futures.
 pub mod task;
 
-use crate::objects::tcb::Tcb;
 use crate::scheduler::percore::PerCore;
 use crate::scheduler::sync::OnceLock;
-use crate::scheduler::task::Task;
 
-pub const NCPU: usize = 4;
 pub static SCHEDULER: OnceLock<PerCore<executor::Executor>> = OnceLock::new();
 
 /// Inits per-core scheduler.
@@ -25,9 +22,4 @@ pub fn init_scheduler() {
     let cores = crate::arch::sysinfo().cores as usize;
     let _ = SCHEDULER.set(PerCore::new(cores));
     log::info!("{cores} schedulers initialized");
-}
-
-pub struct Thread {
-    tcb: Tcb,
-    task: Task, // userland/kernel future.
 }

@@ -63,9 +63,4 @@ impl<T> PerCore<T> {
         let i = cpuid().try_into().unwrap_or(0);
         unsafe { &mut *(self.cores[i].as_ptr() as *mut T) }
     }
-
-    /// Number of cores in use.
-    pub fn len(&self) -> usize {
-        self.initialized_count.load(Ordering::Relaxed)
-    }
 }

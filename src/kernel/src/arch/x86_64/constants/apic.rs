@@ -34,6 +34,4 @@ pub enum ApicValue {
     TdcrDivideBy1 = 0x1,
     /// Enable LAPIC.
     SvrEnable = 0x100,
-    /// Base LVTT value; bit 5 (periodic) may be set optionally.
-    LvttBase = 0x20,
 }

@@ -60,7 +60,9 @@ impl Executor {
         let task_id = task.id;
         let deadline = unsafe {
             task.tcb
-                .map(|tcb| tcb.as_ref().sched_context.unwrap().as_ref().deadline)
+                .map(|tcb| {
+                    tcb.as_ref().sched_context.unwrap().as_ref().deadline
+                })
                 .unwrap_or(u64::MAX)
         };
 

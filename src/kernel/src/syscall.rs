@@ -3,8 +3,6 @@ use core::fmt;
 
 use num_enum::{FromPrimitive, IntoPrimitive};
 
-use crate::scheduler::{SCHEDULER, Task};
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq, FromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum Syscall {
