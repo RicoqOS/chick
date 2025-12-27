@@ -1,7 +1,6 @@
-use core::cell::Cell;
-
 use crate::error::{Result, SysError};
-use crate::objects::capacity::*;
+use crate::objects::capability::*;
+use crate::objects::cnode::{CNODE_ENTRY_BIT_SZ, CNodeEntry, CNodeObj};
 use crate::objects::nullcap::NullCap;
 use crate::objects::tcb::Tcb;
 use crate::{alignup, mask};
@@ -9,14 +8,16 @@ use crate::{alignup, mask};
 #[derive(Debug)]
 pub struct UntypedObj {}
 
-pub type UntypedCap<'a> = CapRef<'a, UntypedObj>;
-
-impl<'a> CapRef<'a, UntypedObj> {
+impl CapRef<'_, UntypedObj> {
     pub const ADDR_MASK: usize = mask!(Self::MIN_BIT_SIZE);
     pub const MIN_BIT_SIZE: usize = 4;
 
-    pub const fn mint(addr: usize, bit_sz: usize, is_device: bool) -> CapRaw {
-        CapRaw::default()
+    pub const fn mint(paddr: usize, bit_sz: usize, is_device: bool) -> CapRaw {
+        let mut capraw = CapRaw::default();
+        capraw.paddr = paddr;
+        capraw.arg1 = is_device as usize;
+        capraw.arg2 = bit_sz & mask!(6);
+        capraw
     }
 
     pub fn bit_size(&self) -> usize {
@@ -41,18 +42,14 @@ impl<'a> CapRef<'a, UntypedObj> {
         self.raw.get().arg1 != 0
     }
 
-    // Allocate `slots.len()` objects of type `obj_type`. putting to `slots`
-    //
-    // `size`: for variable sized caps, `size` is the size of each new object.
-    // ignored for constant sized objects.
-    // `slots`: a range of slots to put new objects. need to check if empty
+    /// Allocate slots objects of given type.
     pub fn retype(
         &self,
         obj_type: ObjType,
         bit_size: usize,
         slots: &[CNodeEntry],
     ) -> Result<()> {
-        /*if slots.iter().any(|cap| NullCap::try_from(cap).is_err()) {
+        if slots.iter().any(|cap| NullCap::try_from(cap).is_err()) {
             return Err(SysError::SlotNotEmpty);
         }
 
@@ -61,7 +58,7 @@ impl<'a> CapRef<'a, UntypedObj> {
         }
 
         let count = slots.len();
-        let obj_size = 1 << bit_size; //TODO: determine size by type;
+        let obj_size = 1 << bit_size; // TODO: determine size by type.
         let tot_size = count * obj_size;
         let free_offset = alignup!(self.free_offset(), bit_size);
 
@@ -70,47 +67,41 @@ impl<'a> CapRef<'a, UntypedObj> {
         }
 
         for (i, slot) in slots.iter().enumerate() {
-            let addr = self.paddr().0 + free_offset + i * obj_size;
+            let addr =
+                self.paddr().as_u64() as usize + free_offset + i * obj_size;
             let cap = match obj_type {
                 ObjType::Untyped => {
                     CapRef::<UntypedObj>::mint(addr, bit_size, self.is_device())
                 },
                 ObjType::CNode => {
                     let radix_sz = bit_size - CNODE_ENTRY_BIT_SZ;
-
-                    CapRef::<CNodeObj>::mint(addr, radix_sz, 64 - radix_sz, 0)
+                    CapRef::<CNodeObj>::mint(
+                        addr,
+                        radix_sz,
+                        64 - radix_sz,
+                        0,
+                        slot.get().rights,
+                    )
                 },
-                ObjType::Tcb => CapRef::<Tcb>::mint(addr),
-                // ObjType::Ram => CapRef::<RamObj>::mint(
-                // addr,
-                // true,
-                // true,
-                // bit_size,
-                // self.is_device(),
-                // ),
-                // ObjType::VTable => CapRef::<VTableObj>::mint(addr),
-                // ObjType::Endpoint => CapRef::<EndpointObj>::mint(addr, 0),
                 _ => return Err(SysError::InvalidValue),
             };
 
             slot.set(cap);
 
-            match obj_type {
-                //                ObjType::NullObj => { unreachable!() },
-                //                ObjType::Untyped => {
-                // CapRef::<UntypedObj>::mint(addr, obj_size) },
-                //ObjType::CNode => CNodeCap::try_from(slot).unwrap().init(),
-                // ObjType::Tcb => TcbCap::try_from(slot).unwrap().init(),
-                // ObjType::Ram => RamCap::try_from(slot).unwrap().init(),
-                // ObjType::VTable => VTableCap::try_from(slot).unwrap().init(),
-                // ObjType::Endpoint => {
-                // EndpointCap::try_from(slot).unwrap().init()
-                // },
-                _ => {},
+            if obj_type == ObjType::Untyped {
+                CapRef::<UntypedObj>::mint(addr, obj_size, self.is_device());
             }
         }
         self.set_free_offset(free_offset + tot_size);
-        Ok(())*/
         Ok(())
+    }
+
+    pub fn identify(&self, tcb: &mut Tcb) -> usize {
+        tcb.set_mr(Tcb::MR1, self.cap_type() as usize);
+        tcb.set_mr(Tcb::MR2, self.paddr().as_u64() as usize);
+        tcb.set_mr(Tcb::MR3, self.bit_size());
+        tcb.set_mr(Tcb::MR4, self.is_device() as usize);
+        tcb.set_mr(Tcb::MR5, self.free_offset());
+        5
     }
 }

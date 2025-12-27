@@ -1,7 +1,8 @@
 use core::ptr::NonNull;
 
 use crate::arch::trapframe::TrapFrame;
-use crate::objects::capability::{CNodeEntry, CapRef};
+use crate::objects::capability::{CapRaw, CapRef, ObjType};
+use crate::objects::cnode::CNodeEntry;
 
 #[derive(Debug)]
 pub enum FaultInfo {
@@ -20,28 +21,12 @@ pub enum ThreadState {
     BlockedOnReply,
     BlockedOnNotification,
     RunningVm,
-    IdleThreadState,
-}
-
-impl ThreadState {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ThreadState::Inactive => "inactive",
-            ThreadState::Running => "running",
-            ThreadState::Restart => "restart",
-            ThreadState::BlockedOnReceive => "blocked on recv",
-            ThreadState::BlockedOnSend => "blocked on send",
-            ThreadState::BlockedOnReply => "blocked on reply",
-            ThreadState::BlockedOnNotification => "blocked on ntfn",
-            ThreadState::RunningVm => "running VM",
-            ThreadState::IdleThreadState => "idle",
-        }
-    }
+    Idle,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fault {
-    CapFault {
+    Cap {
         address: usize,
         in_receive_phase: bool,
     },
@@ -114,10 +99,6 @@ pub struct SchedContext {
     thread: u8,
 }
 
-pub const TCB_SIZE: usize = size_of::<Tcb>().next_power_of_two();
-
-pub type TcbCap<'a> = CapRef<'a, Tcb>;
-
 impl Tcb {
     /// Create a new [`Tcb`].
     pub const fn new() -> Self {
@@ -141,10 +122,29 @@ impl Tcb {
 
 #[cfg(target_arch = "x86_64")]
 impl Tcb {
+    // RDI.
     pub const MR1: usize = 5;
+    // RSI.
     pub const MR2: usize = 4;
+    // RDX.
     pub const MR3: usize = 3;
+    // RCX.
     pub const MR4: usize = 2;
+    // R8.
     pub const MR5: usize = 7;
+    // R9.
     pub const MR6: usize = 8;
+}
+
+pub type TcbCap<'a> = CapRef<'a, Tcb>;
+
+impl TcbCap<'_> {
+    pub fn mint(paddr: usize) -> CapRaw {
+        CapRaw::default_with_type(ObjType::Tcb)
+    }
+
+    pub fn identify(&self, tcb: &mut Tcb) -> usize {
+        tcb.set_mr(Tcb::MR1, self.cap_type() as usize);
+        1
+    }
 }
