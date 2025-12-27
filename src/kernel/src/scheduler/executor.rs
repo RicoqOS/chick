@@ -1,20 +1,22 @@
-use alloc::collections::{BTreeMap, BinaryHeap};
+use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use alloc::task::Wake;
 use core::cell::UnsafeCell;
-use core::cmp::Reverse;
 use core::task::{Context, Poll, Waker};
+
+use heapless::BinaryHeap;
+use heapless::binary_heap::Min;
 
 use crate::arch;
 use crate::scheduler::task::{Task, TaskId};
 
-type Queue = UnsafeCell<BinaryHeap<Reverse<DeadlineEntry>>>;
+/// Maximum amount of TCB entry on a scheduler.
+const MAX_TCB_PER_CORE: usize = 64;
 
-/// Default amount of tasks in queue.
-const DEFAULT_CAPACITY: usize = 20;
+type Queue = UnsafeCell<BinaryHeap<DeadlineEntry, Min, MAX_TCB_PER_CORE>>;
 
-#[derive(Debug, Eq, PartialEq, PartialOrd, Ord, Copy, Clone)]
-struct DeadlineEntry {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+pub struct DeadlineEntry {
     pub deadline: u64,
     pub task_id: TaskId,
 }
@@ -45,9 +47,7 @@ impl Executor {
     pub fn new() -> Self {
         Executor {
             tasks: BTreeMap::new(),
-            task_queue: UnsafeCell::new(BinaryHeap::with_capacity(
-                DEFAULT_CAPACITY,
-            )),
+            task_queue: UnsafeCell::new(BinaryHeap::new()),
             current_task: None,
         }
     }
@@ -56,7 +56,7 @@ impl Executor {
     ///
     /// # Safety
     /// * panics if the task ID is already in the executor.
-    pub fn spawn(&mut self, task: Task) {
+    pub fn spawn(&mut self, task: Task) -> Result<(), ()> {
         let task_id = task.id;
         let deadline = unsafe {
             task.tcb
@@ -73,7 +73,10 @@ impl Executor {
         self.tasks.insert(task_id, TaskSlot { task, waker: None });
 
         let queue = unsafe { &mut *self.task_queue.get() };
-        queue.push(Reverse(DeadlineEntry { deadline, task_id }));
+        queue
+            .push(DeadlineEntry { deadline, task_id })
+            .map_err(|_| ())?;
+        Ok(())
     }
 
     fn handle_waker_task(&mut self, entry: &DeadlineEntry) {
@@ -111,7 +114,7 @@ impl Executor {
             return;
         };
 
-        let Some(Reverse(entry)) = next_entry else {
+        let Some(entry) = next_entry else {
             return;
         };
 
@@ -125,7 +128,8 @@ impl Executor {
             );
 
             let _ = queue.pop();
-            queue.push(Reverse(*current_task));
+            // Rejection should not happen here since we remove an entry before.
+            let _ = queue.push(*current_task);
 
             self.current_task = Some(entry);
             self.handle_waker_task(&entry);
@@ -141,7 +145,7 @@ impl Executor {
             };
 
             let queued_task = match next_entry {
-                Some(Reverse(entry)) => entry,
+                Some(entry) => entry,
                 None => break,
             };
 
@@ -185,10 +189,11 @@ impl TaskWaker {
 
     fn wake_task(&self) {
         let queue = unsafe { (*self.task_queue).get_mut() };
-        queue.push(Reverse(DeadlineEntry {
+        // This logic will be replaced using TCBs.
+        let _ = queue.push(DeadlineEntry {
             deadline: self.deadline,
             task_id: self.task_id,
-        }));
+        });
     }
 }
 

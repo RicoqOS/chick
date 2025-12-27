@@ -8,7 +8,7 @@ use x86_64::structures::tss::TaskStateSegment;
 
 use crate::arch::constants::interrupts::IstIndex;
 
-const STACK_SIZE: usize = 4096 * 5;
+const STACK_SIZE: usize = 4096 * 2; // 8KiB.
 
 /// Task state segment.
 pub static TSS: Lazy<TaskStateSegment> = Lazy::new(|| {

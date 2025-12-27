@@ -20,6 +20,8 @@ use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use spin::{Lazy, Mutex};
 use x86_64::VirtAddr;
 
+use crate::scheduler::executor::DeadlineEntry;
+
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
     config.mappings.physical_memory = Some(Mapping::Dynamic);
@@ -78,7 +80,9 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
 
     #[allow(clippy::empty_loop)]
-    executor.spawn(scheduler::task::Task::new(None, async move { loop {} }));
+    executor
+        .spawn(scheduler::task::Task::new(None, async move { loop {} }))
+        .expect("already 64 entries on core queue");
 
     executor.run()
 }
