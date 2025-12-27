@@ -49,38 +49,36 @@ pub struct Regs {
     pub rcx: u64,
 }
 
-#[naked]
+#[unsafe(naked)]
 extern "C" fn syscall_stub() {
-    unsafe {
-        naked_asm!(
-            "swapgs", // switch GS -> kernel
-            // Save fallbakcs.
-            "push rcx", // user RIP.
-            "push r11", // user RFLAGS.
-            // Build register on stack.
-            "push r10",
-            "push r9",
-            "push r8",
-            "push rdx",
-            "push rsi",
-            "push rdi",
-            "push rax",
-            "mov rdi, rsp",
-            "call syscall_entry",
-            // Restore stack.
-            "pop rax",
-            "pop rdi",
-            "pop rsi",
-            "pop rdx",
-            "pop r8",
-            "pop r9",
-            "pop r10",
-            "pop r11",
-            "pop rcx",
-            "swapgs",
-            "sysretq",
-        )
-    }
+    naked_asm!(
+        "swapgs", // switch GS -> kernel
+        // Save fallbakcs.
+        "push rcx", // user RIP.
+        "push r11", // user RFLAGS.
+        // Build register on stack.
+        "push r10",
+        "push r9",
+        "push r8",
+        "push rdx",
+        "push rsi",
+        "push rdi",
+        "push rax",
+        "mov rdi, rsp",
+        "call syscall_entry",
+        // Restore stack.
+        "pop rax",
+        "pop rdi",
+        "pop rsi",
+        "pop rdx",
+        "pop r8",
+        "pop r9",
+        "pop r10",
+        "pop r11",
+        "pop rcx",
+        "swapgs",
+        "sysretq",
+    )
 }
 
 #[unsafe(no_mangle)]

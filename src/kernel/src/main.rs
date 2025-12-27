@@ -3,15 +3,15 @@
 //! it ensures secure multitasking and prevents unauthorized access.
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt, naked_functions)]
+#![feature(abi_x86_interrupt)]
 
 extern crate alloc;
 
 mod arch;
+mod error;
 mod objects;
 mod scheduler;
 mod syscall;
-mod error;
 #[macro_use]
 mod macros;
 
