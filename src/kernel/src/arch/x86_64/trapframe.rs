@@ -44,6 +44,15 @@ impl TrapFrame {
         }
     }
 
+    /// Get message register.
+    pub fn get_mr(&self, idx: usize) -> usize {
+        debug_assert!(
+            idx > 0 && idx < REGISTERS_SIZE,
+            "MR index out of bounds"
+        );
+        self.registers[idx]
+    }
+
     /// Set message register.
     pub fn set_mr(&mut self, idx: usize, mr: usize) {
         debug_assert!(

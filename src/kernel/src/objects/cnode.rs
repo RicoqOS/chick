@@ -97,10 +97,11 @@ impl CNodeEntry {
 pub type CNodeCap<'a> = CapRef<'a, CNodeObj>;
 
 impl CNodeCap<'_> {
-    const GUARD_SZ_BITS: usize = 6;
-    const GUARD_SZ_OFFSET: usize = 0;
-    const RADIX_SZ_BITS: usize = 6;
-    const RADIX_SZ_OFFSET: usize = Self::GUARD_SZ_OFFSET + Self::GUARD_SZ_BITS;
+    const GUARD_BITS: usize = 6;
+    const GUARD_OFFSET: usize = 0;
+    // 64 bits systems.
+    const RADIX_BITS: usize = 6;
+    const RADIX_OFFSET: usize = Self::GUARD_OFFSET + Self::GUARD_BITS;
 
     const fn mask(bits: usize) -> usize {
         if bits >= core::mem::size_of::<usize>() * 8 {
@@ -139,12 +140,12 @@ impl CNodeCap<'_> {
 
     pub fn guard_bits(&self) -> usize {
         let arg1 = self.get_raw().arg1;
-        (arg1 >> Self::GUARD_SZ_OFFSET) & Self::mask(Self::GUARD_SZ_BITS)
+        (arg1 >> Self::GUARD_OFFSET) & Self::mask(Self::GUARD_BITS)
     }
 
     pub fn radix_bits(&self) -> usize {
         let arg1 = self.get_raw().arg1;
-        (arg1 >> Self::RADIX_SZ_OFFSET) & Self::mask(Self::RADIX_SZ_BITS)
+        (arg1 >> Self::RADIX_OFFSET) & Self::mask(Self::RADIX_BITS)
     }
 
     pub fn size(&self) -> usize {
@@ -164,13 +165,13 @@ impl CNodeCap<'_> {
         guard: usize,
         rights: CapRights,
     ) -> CapRaw {
-        let guard_sz = guard_bits & Self::mask(Self::GUARD_SZ_BITS);
-        let radix_sz = radix_bits & Self::mask(Self::RADIX_SZ_BITS);
+        let guard_sz = guard_bits & Self::mask(Self::GUARD_BITS);
+        let radix_sz = radix_bits & Self::mask(Self::RADIX_BITS);
 
         assert!(radix_sz + guard_sz <= CNODE_DEPTH);
 
-        let arg1 = (guard_sz << Self::GUARD_SZ_OFFSET) |
-            (radix_sz << Self::RADIX_SZ_OFFSET);
+        let arg1 =
+            (guard_sz << Self::GUARD_OFFSET) | (radix_sz << Self::RADIX_OFFSET);
 
         let mut capraw = CapRaw::default_with_type(ObjType::CNode);
         capraw.paddr = addr;

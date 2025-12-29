@@ -3,6 +3,8 @@
 use core::ptr::NonNull;
 
 use crate::arch::trapframe::TrapFrame;
+use crate::cspace::CSpace;
+use crate::error::Result;
 use crate::objects::capability::{CapRaw, CapRef, ObjType};
 use crate::objects::cnode::CNodeEntry;
 
@@ -115,6 +117,15 @@ impl Tcb {
             fault_ep: CNodeEntry::new(),
             state: ThreadState::Running,
         }
+    }
+
+    /// Extract [`CSpace`] root of current [`Tcb`].
+    pub fn cspace(&self) -> Result<CSpace<'_>> {
+        CSpace::new(&self.cspace_root)
+    }
+
+    pub fn get_mr(&self, idx: usize) -> usize {
+        self.context.get_mr(idx)
     }
 
     pub fn set_mr(&mut self, idx: usize, mr: usize) {
