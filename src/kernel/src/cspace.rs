@@ -4,7 +4,6 @@ use core::marker::PhantomData;
 use core::ptr::NonNull;
 
 use crate::error::{Result, SysError};
-use crate::mask;
 use crate::objects::capability::ObjType;
 use crate::objects::cnode::{CNODE_DEPTH, CNodeCap, CNodeEntry};
 use crate::objects::tcb::Tcb;
@@ -78,7 +77,7 @@ impl<'a> CSpace<'a> {
         cptr: usize,
         n_bits: usize,
     ) -> Result<ResolveResult<'a>> {
-        unsafe { self.resolve_internal(cptr, n_bits) }
+        self.resolve_internal(cptr, n_bits)
     }
 
     #[inline]
