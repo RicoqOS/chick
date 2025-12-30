@@ -14,10 +14,6 @@ pub mod constants;
 /// Interrupt descriptor table for CPU interrupts.
 pub mod interrupts;
 
-/// Virtual memory.
-/// Fixed-size with linked list fallback allocator.
-pub mod mm;
-
 /// Programmable interrupt controller.
 pub mod pic;
 
@@ -38,15 +34,9 @@ pub use x86_64::{PhysAddr, VirtAddr};
 
 /// Halt CPU.
 /// Disable interrupts if no task is scheduled or awaiting.
-pub fn halt(is_task_queue_empty: bool) {
-    use x86_64::instructions::interrupts::{self, enable_and_hlt};
-
-    interrupts::disable();
-    if is_task_queue_empty {
-        enable_and_hlt();
-    } else {
-        interrupts::enable();
-    }
+pub fn halt() {
+    use x86_64::instructions::interrupts::enable_and_hlt;
+    enable_and_hlt();
 }
 
 /// System data.

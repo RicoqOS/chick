@@ -3,10 +3,8 @@
 //! it ensures secure multitasking and prevents unauthorized access.
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt)]
+#![feature(abi_x86_interrupt, associated_const_equality)]
 #![allow(unsafe_op_in_unsafe_fn, dead_code)]
-
-extern crate alloc;
 
 mod arch;
 mod error;
@@ -67,21 +65,14 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
             .into_option()
             .expect("physical memory offset undefined"),
     );
-    let mut mm = arch::mm::MemoryManagement::new(physical_memory_offset);
-    mm.allocate(&boot_info.memory_regions)
-        .expect("failed page allocation");
-    let (mut mapper, mut allocator) = mm.get_mapper_and_allocator();
 
     let rsdp_addr = boot_info
         .rsdp_addr
         .take()
         .expect("Failed to find RSDP address");
-    let apic = APIC.lock().init(
-        rsdp_addr as usize,
-        physical_memory_offset,
-        &mut mapper,
-        &mut allocator,
-    );
+    let apic = APIC
+        .lock()
+        .init(rsdp_addr as usize, physical_memory_offset.as_u64());
     *APIC.lock() = apic;
 
     // Enable interrupts after disabling PIC.

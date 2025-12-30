@@ -4,7 +4,7 @@ use crate::arch::apic::Apic;
 use crate::arch::pit::{Mode, Pit};
 
 const DEFAULT_TICKS_HZ: f32 = 100.0; // Default to 10ms.
-const CALIBRATION_SAMPLES: usize = 20;
+const CALIBRATION_SAMPLES: usize = 10;
 
 fn set_ioapic_pit_interrupt(apic: Apic) {
     let gsi = 2;
@@ -53,11 +53,13 @@ impl Tick {
             self.end_calibration();
         } else {
             self.ticks += 1;
-            crate::scheduler::SCHEDULER
-                .get()
-                .expect("scheduler not initialized")
-                .get_mut()
-                .preempt();
+            unsafe {
+                crate::scheduler::SCHEDULER
+                    .get()
+                    .expect("scheduler not initialized")
+                    .get_mut()
+                    .preempt()
+            };
         }
     }
 
@@ -96,13 +98,11 @@ impl Tick {
 
         let cycles = cycles_per_ms as f32 * hz_to_millis;
 
-        // Remplacement de .push()
         if self.calibration_idx < CALIBRATION_SAMPLES {
             self.calibration[self.calibration_idx] = cycles as u32;
             self.calibration_idx += 1;
         }
 
-        // Vérification du remplissage via l'index au lieu de .len()
         if self.calibration_idx >= CALIBRATION_SAMPLES {
             let sum: u32 = self.calibration.iter().sum();
             let cycles_mean = sum / CALIBRATION_SAMPLES as u32;

@@ -1,138 +1,80 @@
 use core::arch::x86_64::__cpuid;
 
-use x86_64::structures::paging::{FrameAllocator, Mapper, PhysFrame, Size4KiB};
-use x86_64::{PhysAddr, VirtAddr};
-
 use crate::arch::constants::apic::*;
-use crate::arch::pic;
-
-fn has_apic() -> bool {
-    let xd_bit: u32 = 1 << 9;
-
-    let edx = unsafe {
-        // Execute the CPUID instruction with EAX=1 and ECX=0.
-        let result = __cpuid(1);
-
-        result.edx
-    };
-
-    // Check if the XD bit is set in the EDX register.
-    (edx & xd_bit) != 0
-}
-
-fn enable_io_apic(addr: VirtAddr) {
-    let ptr = addr.as_mut_ptr::<u32>();
-    unsafe { ptr.offset(0).write_volatile(0x12) };
-}
-
-fn enable_lapic(addr: VirtAddr) {
-    let ptr = addr.as_mut_ptr::<u32>();
-    unsafe {
-        let svr = ptr.offset(ApicRegister::LapicSivr as isize / 4);
-        svr.write_volatile(svr.read_volatile() | ApicValue::SvrEnable as u32);
-    };
-}
-
-fn map_apic(
-    physical_address: u64,
-    mapper: &mut impl Mapper<Size4KiB>,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) -> VirtAddr {
-    use x86_64::structures::paging::{Page, PageTableFlags as Flags};
-
-    let physical_address = PhysAddr::new(physical_address);
-    let page =
-        Page::containing_address(VirtAddr::new(physical_address.as_u64()));
-    let frame = PhysFrame::containing_address(physical_address);
-
-    let flags = Flags::PRESENT | Flags::WRITABLE | Flags::NO_CACHE;
-
-    unsafe {
-        mapper
-            .map_to(page, frame, flags, frame_allocator)
-            .expect("APIC mapping failed")
-            .flush();
-    }
-
-    page.start_address()
-}
-
-/// APIC manager.
+use crate::arch::{VirtAddr, pic};
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub struct Apic {
     io_apic_addr: VirtAddr,
     lapic_addr: VirtAddr,
 }
 
 impl Apic {
-    /// Create a new [`Apic`].
-    pub fn new() -> Self {
+    /// Create an [`Apic`] with no address.
+    pub const fn new() -> Self {
         Self {
             io_apic_addr: VirtAddr::zero(),
             lapic_addr: VirtAddr::zero(),
         }
     }
 
-    /// Inits MMIO.
-    pub fn init(
-        mut self,
-        rsdp_addr: usize,
-        physical_memory_offset: VirtAddr,
-        mapper: &mut impl Mapper<Size4KiB>,
-        frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-    ) -> Self {
-        if !has_apic() {
-            panic!("apic is not supported (1)");
+    fn has_apic() -> bool {
+        let apic_bit = 1 << 9;
+        let cpuid_result = unsafe { __cpuid(1) };
+        (cpuid_result.edx & apic_bit) != 0
+    }
+
+    fn enable_io_apic(addr: VirtAddr) {
+        let ptr = addr.as_mut_ptr::<u32>();
+        unsafe { ptr.offset(0).write_volatile(0x12) };
+    }
+
+    fn enable_lapic(addr: VirtAddr) {
+        let ptr = addr.as_mut_ptr::<u32>();
+        unsafe {
+            let svr = ptr.offset(ApicRegister::LapicSivr as isize / 4);
+            svr.write_volatile(
+                svr.read_volatile() | ApicValue::SvrEnable as u32,
+            );
+        };
+    }
+
+    /// Map an MMIO page.
+    fn map_apic(paddr: u64, vspace_offset: u64) -> VirtAddr {
+        // TODO: Use vspace.
+        VirtAddr::new(paddr + vspace_offset)
+    }
+
+    /// APIC initialization.
+    pub fn init(mut self, _rsdp_addr: usize, vspace_offset: u64) -> Self {
+        if !Self::has_apic() {
+            panic!("APIC is not supported");
         }
 
         pic::Pic::new().disable();
 
-        let acpi = crate::arch::acpi::Acpi::new(physical_memory_offset);
-        let acpi_tables = unsafe {
-            acpi::AcpiTables::from_rsdp(acpi, rsdp_addr)
-                .expect("Failed to parse ACPI tables")
-        };
+        // TODO: Read RDSP without alloc.
+        let io_apic_addr = 0xFEC0_0000;
+        let lapic_addr = 0xFEE0_0000;
 
-        let platform_info = acpi_tables
-            .platform_info()
-            .expect("Failed to get platform info");
+        let io_apic_addr = Self::map_apic(io_apic_addr, vspace_offset);
+        let lapic_addr = Self::map_apic(lapic_addr, vspace_offset);
 
-        let (io_apic_addr, lapic_addr) = match platform_info.interrupt_model {
-            acpi::InterruptModel::Apic(apic) => {
-                let apic_addr = apic.io_apics[0].address;
-                log::debug!("apic address is {apic_addr:?}");
+        Self::enable_io_apic(io_apic_addr);
+        Self::enable_lapic(lapic_addr);
 
-                let lapic_addr = apic.local_apic_address;
-                log::debug!("lapic address is {lapic_addr:?}");
-
-                log::debug!(
-                    "apic interrupt source overrides: {:?}",
-                    apic.interrupt_source_overrides
-                );
-
-                (apic_addr as u64, lapic_addr)
-            },
-            _ => panic!("apic is not supported (2)"),
-        };
-
-        let io_apic_addr = map_apic(io_apic_addr, mapper, frame_allocator);
-        enable_io_apic(io_apic_addr);
-
-        let lapic_addr = map_apic(lapic_addr, mapper, frame_allocator);
-        enable_lapic(lapic_addr);
-
-        log::info!("apic, lapic initialized");
+        log::info!(
+            "apic, lapic initialized at IOAPIC={:x} LAPIC={:x}",
+            io_apic_addr.as_u64(),
+            lapic_addr.as_u64(),
+        );
 
         self.io_apic_addr = io_apic_addr;
         self.lapic_addr = lapic_addr;
-
         self
     }
 
     pub fn ioapic_read(&self, reg: u32) -> u32 {
         let base = self.io_apic_addr.as_mut_ptr::<u32>();
-
         unsafe {
             core::ptr::write_volatile(base, reg);
             core::ptr::read_volatile(base.add(4))
@@ -141,7 +83,6 @@ impl Apic {
 
     pub fn ioapic_write(&self, reg: u32, value: u32) {
         let base = self.io_apic_addr.as_mut_ptr::<u32>();
-
         unsafe {
             core::ptr::write_volatile(base, reg);
             core::ptr::write_volatile(base.add(4), value);
@@ -150,18 +91,14 @@ impl Apic {
 
     pub fn init_counter(&self, periodic: bool, ticks: u32) -> u32 {
         let ptr = self.lapic_addr.as_mut_ptr::<u32>();
-
         unsafe {
             let lvtt = ptr.offset(ApicRegister::LapicLvtt as isize / 4);
             lvtt.write_volatile(0x20 | ((periodic as u32) << 17));
-
             let tdcr = ptr.offset(ApicRegister::LapicTdcr as isize / 4);
             tdcr.write_volatile(ApicValue::TdcrDivideBy1 as u32);
-
             let ticr = ptr.offset(ApicRegister::LapicTicr as isize / 4);
             ticr.write_volatile(ticks);
-        };
-
+        }
         ticks
     }
 
@@ -174,8 +111,8 @@ impl Apic {
     }
 
     pub fn end_interrupt(&self) {
+        let ptr = self.lapic_addr.as_mut_ptr::<u32>();
         unsafe {
-            let ptr = self.lapic_addr.as_mut_ptr::<u32>();
             ptr.offset(ApicRegister::LapicEoi as isize / 4)
                 .write_volatile(0);
         }
