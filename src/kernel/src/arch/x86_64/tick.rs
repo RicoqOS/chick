@@ -1,10 +1,10 @@
-use alloc::vec::Vec;
 use core::time::Duration;
 
 use crate::arch::apic::Apic;
 use crate::arch::pit::{Mode, Pit};
 
 const DEFAULT_TICKS_HZ: f32 = 100.0; // Default to 10ms.
+const CALIBRATION_SAMPLES: usize = 20;
 
 fn set_ioapic_pit_interrupt(apic: Apic) {
     let gsi = 2;
@@ -29,21 +29,21 @@ pub struct Tick {
     ticks: u64,
     duration: Duration,
     lapic_counter: u32,
-    calibration: Vec<u32>,
+    calibration: [u32; CALIBRATION_SAMPLES],
+    calibration_idx: usize,
 }
 
 impl Tick {
     /// Create a new [`Tick`] manager.
     pub fn new() -> Self {
-        // It is safe to create APIC because it points to invalid virtual
-        // address. Safe only if APIC is set somewhere after.
         Self {
             apic: Apic::new(),
             is_calibration: true,
             ticks: 0,
             duration: Duration::from_millis(50),
             lapic_counter: 0,
-            calibration: Vec::with_capacity(20),
+            calibration: [0; CALIBRATION_SAMPLES],
+            calibration_idx: 0,
         }
     }
 
@@ -66,6 +66,7 @@ impl Tick {
         log::debug!("initializing calibration...");
         self.is_calibration = true;
         self.apic = apic;
+        self.calibration_idx = 0;
 
         set_ioapic_pit_interrupt(self.apic);
 
@@ -90,29 +91,28 @@ impl Tick {
         let end = self.apic.read_counter();
         let interval = self.lapic_counter - end;
 
-        log::debug!(
-            "lapic timer elapsed {interval} CPU cycles during {}ms",
-            self.duration.as_millis()
-        );
-
-        // Init periodic LAPIC timer for kernel ticks.
         let hz_to_millis = 1.0 / DEFAULT_TICKS_HZ * 1000.0;
         let cycles_per_ms = interval / self.duration.as_millis() as u32;
-        log::debug!("cpu is {cycles_per_ms} cycles per ms");
 
-        // Compensate for certain software slowdowns.
         let cycles = cycles_per_ms as f32 * hz_to_millis;
-        self.calibration.push(cycles as u32);
 
-        if self.calibration.len() >= 20 {
-            let cycles_mean = self.calibration.iter().sum::<u32>() /
-                self.calibration.len() as u32;
+        // Remplacement de .push()
+        if self.calibration_idx < CALIBRATION_SAMPLES {
+            self.calibration[self.calibration_idx] = cycles as u32;
+            self.calibration_idx += 1;
+        }
+
+        // Vérification du remplissage via l'index au lieu de .len()
+        if self.calibration_idx >= CALIBRATION_SAMPLES {
+            let sum: u32 = self.calibration.iter().sum();
+            let cycles_mean = sum / CALIBRATION_SAMPLES as u32;
+
             log::info!(
                 "lapic timer is set to {cycles_mean} cycles for {DEFAULT_TICKS_HZ}Hz"
             );
+
             self.apic.init_counter(true, cycles_mean);
             self.is_calibration = false;
-            self.calibration.clear();
         } else {
             self.init_counters();
         }
