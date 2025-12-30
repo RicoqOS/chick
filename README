@@ -1,10 +1,18 @@
 Chick
-=====
+-----
 
-Simple micro-kernel.
-Only available for x86_64 for now, due to the crates used.
+Experimental x86-64 seL4-like microkernel for soft real-time use.
 
-* Logging,
-* Material interrupts,
-* Virtual memory,
-* Scheduling.
+Core features:
+    * Zero Dynamic Allocation: kernel memory is statically partitioned at boot
+        to ensure determinism.
+    * Real-Time Scheduling: implements a partitioned per-core EDF scheduler.
+        It uses a static binary min-priority queue (O(log n) inserts/deletes,
+        O(1) peek) supporting up to 64 TCBs per core.
+    * Transition: currently features a framebuffer console, soon to be
+        deprecated in favor of a UART serial driver for minimal overhead.
+
+
+
+Note: this microkernel is a research project and is not intended for production
+use.
