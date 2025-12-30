@@ -32,6 +32,9 @@ pub mod syscall;
 
 /// Trap frame.
 pub mod trapframe;
+pub mod vspace;
+
+pub use x86_64::{PhysAddr, VirtAddr};
 
 /// Halt CPU.
 /// Disable interrupts if no task is scheduled or awaiting.
