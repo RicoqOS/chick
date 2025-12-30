@@ -2,9 +2,11 @@
 
 use crate::objects::capability::ObjType;
 use crate::objects::cnode::CNodeObj;
+use crate::objects::frame::FrameObj;
 use crate::objects::nullcap::NullObj;
 use crate::objects::tcb::Tcb;
 use crate::objects::untyped::UntypedObj;
+use crate::objects::vspace::VSpaceObj;
 
 pub trait KernelObject {
     const OBJ_TYPE: ObjType;
@@ -20,6 +22,14 @@ impl KernelObject for CNodeObj {
 
 impl KernelObject for UntypedObj {
     const OBJ_TYPE: ObjType = ObjType::Untyped;
+}
+
+impl KernelObject for FrameObj {
+    const OBJ_TYPE: ObjType = ObjType::Frame;
+}
+
+impl KernelObject for VSpaceObj {
+    const OBJ_TYPE: ObjType = ObjType::VSpace;
 }
 
 impl KernelObject for Tcb {

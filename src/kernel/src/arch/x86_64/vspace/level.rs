@@ -1,6 +1,6 @@
 //! Page table level definitions for x86-64 4-level paging.
 
-use crate::arch::vspace::entry::{PDE, PDPTE, PML4E, PTE};
+use crate::arch::vspace::entry::{Pde, Pdpte, Pml4e, Pte};
 use crate::vspace::{
     Level, PAGE_BITS_1G, PAGE_BITS_2M, PAGE_BITS_4K, PageLevel, TableLevel,
     TopLevel,
@@ -42,24 +42,24 @@ impl Level for Frame {
 }
 
 impl TableLevel for Pml4 {
-    type Entry = PML4E;
+    type Entry = Pml4e;
     type NextLevel = Pdpt;
 }
 
 impl TopLevel for Pml4 {}
 
 impl TableLevel for Pdpt {
-    type Entry = PDPTE;
+    type Entry = Pdpte;
     type NextLevel = PageDirectory;
 }
 
 impl TableLevel for PageDirectory {
-    type Entry = PDE;
+    type Entry = Pde;
     type NextLevel = Pt;
 }
 
 impl TableLevel for Pt {
-    type Entry = PTE;
+    type Entry = Pte;
     type NextLevel = Frame;
 }
 

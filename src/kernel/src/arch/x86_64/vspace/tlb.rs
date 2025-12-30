@@ -46,7 +46,7 @@ pub fn invalidate_pcid(pcid: u16) {
     unsafe {
         asm!(
             "invpcid {0}, [{1}]",
-            in(reg) 0u64, // Type 0: Individual address
+            in(reg) 0u64, // Type 0: Individual address.
             in(reg) &desc,
             options(nostack, preserves_flags)
         );
@@ -61,9 +61,9 @@ pub fn flush_all_non_global() {
     unsafe {
         asm!(
             "mov {tmp}, cr4",
-            "and {tmp}, ~(1 << 7)", // Clear PGE
+            "and {tmp}, ~(1 << 7)", // clear PGE.
             "mov cr4, {tmp}",
-            "or {tmp}, (1 << 7)", // Set PGE
+            "or {tmp}, (1 << 7)", // set PGE.
             "mov cr4, {tmp}",
             tmp = out(reg) _,
             options(nostack, preserves_flags)

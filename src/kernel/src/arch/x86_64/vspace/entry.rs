@@ -45,22 +45,22 @@ pub trait PageTableEntry: Copy + Clone + Sized {
 /// PML4 Entry (always points to PDPT).
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(transparent)]
-pub struct PML4E(u64);
+pub struct Pml4e(u64);
 
 /// PDPT Entry (points to PD or 1GB page).
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(transparent)]
-pub struct PDPTE(u64);
+pub struct Pdpte(u64);
 
 /// Page Directory Entry (points to PT or 2MB page).
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(transparent)]
-pub struct PDE(u64);
+pub struct Pde(u64);
 
 /// Page Table Entry (points to 4KB frame).
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(transparent)]
-pub struct PTE(u64);
+pub struct Pte(u64);
 
 fn build_flags(attr: &VMAttributes) -> u64 {
     let mut flags = PRESENT;
@@ -89,7 +89,7 @@ fn build_flags(attr: &VMAttributes) -> u64 {
     flags
 }
 
-impl PML4E {
+impl Pml4e {
     /// Create a PML4 entry pointing to a PDPT.
     pub const fn table(paddr: PhysAddr, attr: VMAttributes) -> Self {
         let flags = PRESENT |
@@ -108,7 +108,7 @@ impl PML4E {
     }
 }
 
-impl PageTableEntry for PML4E {
+impl PageTableEntry for Pml4e {
     fn invalid() -> Self {
         Self(0)
     }
@@ -118,7 +118,7 @@ impl PageTableEntry for PML4E {
     }
 
     fn is_table(&self) -> bool {
-        self.is_present() // PML4E is always a table entry.
+        self.is_present() // Pml4e is always a table entry.
     }
 
     fn is_page(&self) -> bool {
@@ -138,7 +138,7 @@ impl PageTableEntry for PML4E {
     }
 }
 
-impl PDPTE {
+impl Pdpte {
     /// Create a PDPT entry pointing to a Page Directory.
     pub fn new_table(paddr: PhysAddr) -> Self {
         Self((paddr.as_u64() & ADDR_MASK) | PRESENT | WRITABLE | USER)
@@ -151,7 +151,7 @@ impl PDPTE {
     }
 }
 
-impl PageTableEntry for PDPTE {
+impl PageTableEntry for Pdpte {
     fn invalid() -> Self {
         Self(0)
     }
@@ -181,7 +181,7 @@ impl PageTableEntry for PDPTE {
     }
 }
 
-impl PDE {
+impl Pde {
     /// Create a PD entry pointing to a Page Table.
     pub fn new_table(paddr: PhysAddr) -> Self {
         Self((paddr.as_u64() & ADDR_MASK) | PRESENT | WRITABLE | USER)
@@ -194,7 +194,7 @@ impl PDE {
     }
 }
 
-impl PageTableEntry for PDE {
+impl PageTableEntry for Pde {
     fn invalid() -> Self {
         Self(0)
     }
@@ -224,7 +224,7 @@ impl PageTableEntry for PDE {
     }
 }
 
-impl PTE {
+impl Pte {
     /// Create a 4KB page entry.
     pub fn new_page(paddr: PhysAddr, attr: VMAttributes) -> Self {
         let flags = build_flags(&attr);
@@ -232,7 +232,7 @@ impl PTE {
     }
 }
 
-impl PageTableEntry for PTE {
+impl PageTableEntry for Pte {
     fn invalid() -> Self {
         Self(0)
     }

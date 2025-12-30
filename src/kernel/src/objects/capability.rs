@@ -3,6 +3,7 @@
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
+use crate::arch::PhysAddr;
 use crate::objects::cnode::{CNODE_DEPTH, CNodeCap, CNodeEntry, CNodeObj};
 use crate::objects::traits::KernelObject;
 
@@ -19,6 +20,7 @@ pub enum ObjType {
     Reply = 6,
     Monitor = 7,
     Interrupt = 8,
+    VSpace = 9,
 }
 
 bitflags::bitflags! {
@@ -48,9 +50,13 @@ impl<T: KernelObject + ?Sized> CapRef<'_, T> {
         T::OBJ_TYPE
     }
 
-    #[cfg(target_arch = "x86_64")]
-    pub fn paddr(&self) -> x86_64::PhysAddr {
-        x86_64::PhysAddr::new(self.raw.get().paddr as u64)
+    pub fn paddr(&self) -> PhysAddr {
+        PhysAddr::new(self.raw.get().paddr as u64)
+    }
+
+    /// Get the rights associated with this capability.
+    pub fn rights(&self) -> CapRights {
+        self.raw.get().rights
     }
 }
 

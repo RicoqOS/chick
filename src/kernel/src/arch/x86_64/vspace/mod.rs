@@ -2,4 +2,4 @@
 
 pub mod entry;
 pub mod level;
-mod tlb;
+pub mod tlb;

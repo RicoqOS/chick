@@ -57,7 +57,7 @@ impl<'a> CSpace<'a> {
         cptr: usize,
         depth: usize,
     ) -> Result<&'a CNodeEntry> {
-        if depth < 1 || depth > CNODE_DEPTH {
+        if !(1..=CNODE_DEPTH).contains(&depth) {
             return Err(SysError::InvalidValue);
         }
 

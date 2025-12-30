@@ -91,10 +91,7 @@ extern "C" fn syscall_entry(registers: &mut Regs) -> u64 {
         registers.r8,
         registers.r9,
     ];
-    let _ret = crate::syscall::handler(
-        registers.rax,
-        args
-    );
+    let _ret = crate::syscall::handler(registers.rax, args);
 
     1
 }
