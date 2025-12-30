@@ -18,6 +18,7 @@ pub enum FaultInfo {
 pub enum ThreadState {
     #[default]
     Inactive,
+    Ready,
     Running,
     Restart,
     BlockedOnReceive,

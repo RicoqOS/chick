@@ -1,208 +1,184 @@
-use alloc::collections::BTreeMap;
-use alloc::sync::Arc;
-use alloc::task::Wake;
-use core::cell::UnsafeCell;
-use core::task::{Context, Poll, Waker};
+//! Deterministic, allocation-free EDF scheduler (per-core)
+
+use core::ptr::NonNull;
 
 use heapless::BinaryHeap;
 use heapless::binary_heap::Min;
 
 use crate::arch;
-use crate::scheduler::task::{Task, TaskId};
+use crate::objects::tcb::{Tcb, ThreadState};
 
 /// Maximum amount of TCB entry on a scheduler.
 const MAX_TCB_PER_CORE: usize = 64;
 
-type Queue = UnsafeCell<BinaryHeap<DeadlineEntry, Min, MAX_TCB_PER_CORE>>;
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
-pub struct DeadlineEntry {
-    pub deadline: u64,
-    pub task_id: TaskId,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Entry {
+    deadline: u64,
+    tcb: NonNull<Tcb>,
 }
 
-/// Task executor that drives tasks to completion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SchedError {
+    QueueFull,
+    InvalidState,
+    NotFound,
+}
+
+/// Per-core EDF executor
+#[derive(Default)]
 pub struct Executor {
-    tasks: BTreeMap<TaskId, TaskSlot>,
-    task_queue: Queue,
-    current_task: Option<DeadlineEntry>,
+    ready: BinaryHeap<Entry, Min, MAX_TCB_PER_CORE>,
+    current: Option<Entry>,
+    idle: Option<NonNull<Tcb>>,
 }
 
-struct TaskSlot {
-    task: Task,
-    waker: Option<Waker>,
-}
-
-impl Default for Executor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-unsafe impl Sync for Executor {}
+// SAFETY: executor is per-core, interrupts disabled during mutation
+unsafe impl Send for Executor {}
 
 impl Executor {
     /// Create new [`Executor`].
     #[must_use]
-    pub fn new() -> Self {
-        Executor {
-            tasks: BTreeMap::new(),
-            task_queue: UnsafeCell::new(BinaryHeap::new()),
-            current_task: None,
+    pub const fn new() -> Self {
+        Self {
+            ready: BinaryHeap::new(),
+            current: None,
+            idle: None,
         }
     }
 
-    /// Spawn a new task.
-    ///
-    /// # Safety
-    /// * panics if the task ID is already in the executor.
-    pub fn spawn(&mut self, task: Task) -> Result<(), ()> {
-        let task_id = task.id;
-        let deadline = unsafe {
-            task.tcb
-                .map(|tcb| {
-                    tcb.as_ref().sched_context.unwrap().as_ref().deadline
-                })
+    pub unsafe fn set_idle(&mut self, tcb: NonNull<Tcb>) {
+        (*tcb.as_ptr()).state = ThreadState::Ready;
+        self.idle = Some(tcb);
+    }
+
+    #[inline]
+    fn deadline_of(tcb: NonNull<Tcb>) -> u64 {
+        unsafe {
+            tcb.as_ref()
+                .sched_context
+                .map(|sc| sc.as_ref().deadline)
                 .unwrap_or(u64::MAX)
-        };
-
-        if self.tasks.contains_key(&task_id) {
-            panic!("task with same ID already in tasks");
-        }
-
-        self.tasks.insert(task_id, TaskSlot { task, waker: None });
-
-        let queue = unsafe { &mut *self.task_queue.get() };
-        queue
-            .push(DeadlineEntry { deadline, task_id })
-            .map_err(|_| ())?;
-        Ok(())
-    }
-
-    fn handle_waker_task(&mut self, entry: &DeadlineEntry) {
-        let slot = match self.tasks.get_mut(&entry.task_id) {
-            Some(s) => s,
-            None => return,
-        };
-
-        let waker = slot.waker.get_or_insert_with(|| {
-            TaskWaker::new(
-                entry.task_id,
-                entry.deadline,
-                &mut self.task_queue as *mut _,
-            )
-        });
-
-        let mut context = Context::from_waker(waker);
-        match slot.task.future.as_mut().poll(&mut context) {
-            Poll::Ready(()) => {
-                log::debug!("task {} finished", entry.task_id.0);
-                self.tasks.remove(&entry.task_id);
-                self.current_task = None;
-            },
-            Poll::Pending => unimplemented!(),
         }
     }
 
-    /// Preempt current task if another with higher priority exists.
-    pub fn preempt(&mut self) {
-        let queue = unsafe { &mut *self.task_queue.get() };
-        let next_entry = queue.peek().copied();
+    /// Insert a [`ThreadState::Ready`] [`Tcb`] in queue.
+    pub unsafe fn enqueue(
+        &mut self,
+        tcb: NonNull<Tcb>,
+    ) -> Result<(), SchedError> {
+        let tcb_ref = tcb.as_ref();
 
-        let Some(current_task) = self.current_task.as_ref() else {
-            self.run_ready_tasks();
+        if tcb_ref.state != ThreadState::Ready {
+            return Err(SchedError::InvalidState);
+        }
+
+        let entry = Entry {
+            deadline: Self::deadline_of(tcb),
+            tcb,
+        };
+
+        self.ready.push(entry).map_err(|_| SchedError::QueueFull)
+    }
+
+    #[inline]
+    fn should_preempt(&self) -> bool {
+        match (self.current, self.ready.peek()) {
+            (Some(cur), Some(next)) => next.deadline < cur.deadline,
+            (None, Some(_)) => true,
+            _ => false,
+        }
+    }
+
+    unsafe fn context_switch(&mut self, next: Entry) -> ! {
+        if let Some(cur) = self.current.take() {
+            let cur_tcb = cur.tcb.as_ptr();
+            if (*cur_tcb).state == ThreadState::Running {
+                (*cur_tcb).state = ThreadState::Ready;
+                self.ready.push(cur).expect("ready queue overflow");
+            }
+        }
+
+        let tcb = next.tcb.as_ptr();
+        (*tcb).state = ThreadState::Running;
+        self.current = Some(next);
+
+        (*tcb).context.restore()
+    }
+
+    /// Called from timer interrupt
+    pub unsafe fn preempt(&mut self) {
+        if !self.should_preempt() {
             return;
-        };
-
-        let Some(entry) = next_entry else {
-            return;
-        };
-
-        if entry.deadline < current_task.deadline {
-            log::info!(
-                "preempting task #{} (deadline {}) for task #{} (deadline {})",
-                current_task.task_id.0,
-                current_task.deadline,
-                entry.task_id.0,
-                entry.deadline
-            );
-
-            let _ = queue.pop();
-            // Rejection should not happen here since we remove an entry before.
-            let _ = queue.push(*current_task);
-
-            self.current_task = Some(entry);
-            self.handle_waker_task(&entry);
         }
+
+        let next = self.ready.pop().expect("preempt without ready task");
+        self.context_switch(next);
     }
 
-    /// Run all tasks ready to run.
-    fn run_ready_tasks(&mut self) {
+    pub unsafe fn yield_current(&mut self) -> ! {
+        if let Some(cur) = self.current.take() {
+            let tcb = cur.tcb.as_ptr();
+            (*tcb).state = ThreadState::Ready;
+            self.ready.push(cur).expect("ready queue overflow");
+        }
+
+        self.schedule()
+    }
+
+    pub unsafe fn block_current(&mut self, state: ThreadState) -> ! {
+        let valid = matches!(
+            state,
+            ThreadState::BlockedOnReceive |
+                ThreadState::BlockedOnSend |
+                ThreadState::BlockedOnReply |
+                ThreadState::BlockedOnNotification
+        );
+
+        assert!(valid);
+
+        if let Some(cur) = self.current.take() {
+            (*cur.tcb.as_ptr()).state = state;
+        }
+
+        self.schedule()
+    }
+
+    pub unsafe fn wake(&mut self, tcb: NonNull<Tcb>) -> Result<(), SchedError> {
+        let tcb_ref = tcb.as_ref();
+
+        if !matches!(
+            tcb_ref.state,
+            ThreadState::BlockedOnReceive |
+                ThreadState::BlockedOnSend |
+                ThreadState::BlockedOnReply |
+                ThreadState::BlockedOnNotification
+        ) {
+            return Err(SchedError::InvalidState);
+        }
+
+        (*tcb.as_ptr()).state = ThreadState::Ready;
+        self.enqueue(tcb)
+    }
+
+    unsafe fn schedule(&mut self) -> ! {
+        if let Some(next) = self.ready.pop() {
+            self.context_switch(next);
+        }
+
+        if let Some(idle) = self.idle {
+            let entry = Entry {
+                tcb: idle,
+                deadline: u64::MAX,
+            };
+            self.context_switch(entry);
+        }
+
         loop {
-            let next_entry = {
-                let queue = unsafe { &mut *self.task_queue.get() };
-                queue.pop()
-            };
-
-            let queued_task = match next_entry {
-                Some(entry) => entry,
-                None => break,
-            };
-
-            self.current_task = Some(queued_task);
-            self.handle_waker_task(&queued_task);
+            arch::halt();
         }
     }
 
-    fn sleep_if_idle(&self) {
-        arch::halt(unsafe { (*self.task_queue.get()).is_empty() });
-    }
-
-    /// Like `run_ready_tasks` but sleeps if no task is ready.
     pub fn run(&mut self) -> ! {
-        loop {
-            self.run_ready_tasks();
-            self.sleep_if_idle();
-        }
-    }
-}
-
-struct TaskWaker {
-    task_id: TaskId,
-    deadline: u64,
-    task_queue: *mut Queue,
-}
-
-unsafe impl Sync for TaskWaker {}
-unsafe impl Send for TaskWaker {}
-
-impl TaskWaker {
-    #[must_use]
-    #[allow(clippy::new_ret_no_self)]
-    fn new(task_id: TaskId, deadline: u64, task_queue: *mut Queue) -> Waker {
-        Waker::from(Arc::new(TaskWaker {
-            task_id,
-            deadline,
-            task_queue,
-        }))
-    }
-
-    fn wake_task(&self) {
-        let queue = unsafe { (*self.task_queue).get_mut() };
-        // This logic will be replaced using TCBs.
-        let _ = queue.push(DeadlineEntry {
-            deadline: self.deadline,
-            task_id: self.task_id,
-        });
-    }
-}
-
-impl Wake for TaskWaker {
-    fn wake(self: Arc<Self>) {
-        self.wake_task();
-    }
-
-    fn wake_by_ref(self: &Arc<Self>) {
-        self.wake_task();
+        unsafe { self.schedule() }
     }
 }

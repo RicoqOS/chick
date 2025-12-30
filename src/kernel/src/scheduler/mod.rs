@@ -9,9 +9,6 @@ mod percore;
 /// `OnceLock`-like.
 mod sync;
 
-/// Light Rust futures.
-pub mod task;
-
 use crate::scheduler::percore::PerCore;
 use crate::scheduler::sync::OnceLock;
 
