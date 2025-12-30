@@ -4,6 +4,7 @@
 #![no_std]
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![allow(unsafe_op_in_unsafe_fn, dead_code)]
 
 extern crate alloc;
 
@@ -14,17 +15,34 @@ mod scheduler;
 mod syscall;
 #[macro_use]
 mod macros;
+mod cspace;
+mod vspace;
 
 use bootloader_api::config::Mapping;
 use bootloader_api::{BootInfo, BootloaderConfig, entry_point};
 use spin::{Lazy, Mutex};
 use x86_64::VirtAddr;
 
-use crate::scheduler::executor::DeadlineEntry;
+pub const KERNEL_STACK_GUARD: u64 = 0xffff_ffff_7000_0000;
+pub const BOOT_INFO_ADDR: u64 = 0xffff_ffff_4000_0000;
+pub const PHYS_MEM_OFFSET: u64 = 0xffff_8000_0000_0000;
+pub const RECURSIVE_P4_ADDR: u64 = 0xffff_ff00_0000_0000;
+pub const KERNEL_STACK_SIZE: u64 = 128 * 1024;
 
 pub static BOOTLOADER_CONFIG: BootloaderConfig = {
     let mut config = BootloaderConfig::new_default();
-    config.mappings.physical_memory = Some(Mapping::Dynamic);
+
+    // Avoid address randomization.
+    config.mappings.aslr = false;
+
+    config.mappings.kernel_stack = Mapping::FixedAddress(KERNEL_STACK_GUARD);
+    config.kernel_stack_size = KERNEL_STACK_SIZE;
+    config.mappings.boot_info = Mapping::FixedAddress(BOOT_INFO_ADDR);
+    config.mappings.physical_memory =
+        Some(Mapping::FixedAddress(PHYS_MEM_OFFSET));
+    config.mappings.page_table_recursive =
+        Some(Mapping::FixedAddress(RECURSIVE_P4_ADDR));
+
     config
 };
 pub static APIC: Lazy<Mutex<arch::apic::Apic>> =
@@ -78,12 +96,6 @@ fn main(boot_info: &'static mut BootInfo) -> ! {
     arch::syscall::init_syscall();
 
     let executor = scheduler::SCHEDULER.get().unwrap().get_mut();
-
-    #[allow(clippy::empty_loop)]
-    executor
-        .spawn(scheduler::task::Task::new(None, async move { loop {} }))
-        .expect("already 64 entries on core queue");
-
     executor.run()
 }
 

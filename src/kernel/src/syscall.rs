@@ -1,6 +1,5 @@
 //! Syscalls definition.
 
-use alloc::vec::Vec;
 use core::fmt;
 
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -48,14 +47,14 @@ impl core::error::Error for SysError {}
 #[inline]
 pub fn handler<I: Into<Syscall>>(
     id: I,
-    args: Vec<u64>,
+    _args: [u64; 6],
 ) -> Result<(), SysError> {
     let id = id.into();
 
     match id {
         Syscall::AttachIrq => unimplemented!(),
         Syscall::CreateTask => {
-            if args.len() < 3 {
+            /*if args.len() < 3 {
                 return Err(SysError::InvalidValue);
             }
 
@@ -64,7 +63,7 @@ pub fn handler<I: Into<Syscall>>(
             // }; let task = Task::new(args[1], async move {
             // f();
             // });
-            // SCHEDULER.get().unwrap().get_mut().spawn(task);
+            // SCHEDULER.get().unwrap().get_mut().spawn(task);*/
         },
         Syscall::Invalid(id) => return Err(SysError::UnknownSyscall(id)),
         _ => unimplemented!(),
