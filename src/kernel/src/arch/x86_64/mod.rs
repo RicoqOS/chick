@@ -48,7 +48,7 @@ pub struct System {
 pub fn sysinfo() -> System {
     let cores = {
         use core::arch::x86_64::__cpuid;
-        let cpuid = unsafe { __cpuid(4) };
+        let cpuid = __cpuid(4);
         ((cpuid.eax >> 26) & 0x3f) + 1
     };
     System { cores }
@@ -56,6 +56,6 @@ pub fn sysinfo() -> System {
 
 /// Return current core ID.
 pub fn cpuid() -> u32 {
-    let cpuid = unsafe { core::arch::x86_64::__cpuid(1) };
+    let cpuid = core::arch::x86_64::__cpuid(1);
     (cpuid.ebx >> 24) & 0xff
 }

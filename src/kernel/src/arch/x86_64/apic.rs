@@ -19,7 +19,7 @@ impl Apic {
 
     fn has_apic() -> bool {
         let apic_bit = 1 << 9;
-        let cpuid_result = unsafe { __cpuid(1) };
+        let cpuid_result = __cpuid(1);
         (cpuid_result.edx & apic_bit) != 0
     }
 
