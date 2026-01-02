@@ -74,7 +74,9 @@ extern "x86-interrupt" fn page_fault(
     );
 }
 
-extern "x86-interrupt" fn machine_check(stack_frame: InterruptStackFrame) -> ! {
+extern "x86-interrupt" fn machine_check(
+    stack_frame: InterruptStackFrame,
+) -> ! {
     panic!("Machine check: {:#?}", stack_frame);
 }
 

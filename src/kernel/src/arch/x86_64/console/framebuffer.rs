@@ -143,7 +143,9 @@ impl FrameBufferWriter {
         let color = match self.info.pixel_format {
             PixelFormat::Rgb => [red, intensity, intensity / 2, 0],
             PixelFormat::Bgr => [intensity / 2, intensity, red, 0],
-            PixelFormat::U8 => [if intensity > 200 { 0xf } else { 0 }, 0, 0, 0],
+            PixelFormat::U8 => {
+                [if intensity > 200 { 0xf } else { 0 }, 0, 0, 0]
+            },
             other => {
                 // set a supported (but invalid) pixel format before panicking
                 // to avoid a double panic; it might not be

@@ -143,7 +143,10 @@ impl Executor {
         self.schedule()
     }
 
-    pub unsafe fn wake(&mut self, tcb: NonNull<Tcb>) -> Result<(), SchedError> {
+    pub unsafe fn wake(
+        &mut self,
+        tcb: NonNull<Tcb>,
+    ) -> Result<(), SchedError> {
         let tcb_ref = tcb.as_ref();
 
         if !matches!(

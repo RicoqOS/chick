@@ -1,7 +1,9 @@
 use core::arch::naked_asm;
 
 use x86_64::VirtAddr;
-use x86_64::registers::model_specific::{Efer, EferFlags, LStar, SFMask, Star};
+use x86_64::registers::model_specific::{
+    Efer, EferFlags, LStar, SFMask, Star,
+};
 use x86_64::registers::rflags::RFlags;
 
 use crate::arch::interrupts::gdt::GDT;
