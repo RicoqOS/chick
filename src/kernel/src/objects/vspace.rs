@@ -9,9 +9,9 @@ use crate::arch::vspace::{
 use crate::arch::{PhysAddr, VirtAddr};
 use crate::error::{VSpaceError, WalkResult};
 use crate::mask;
-use crate::objects::capability::{CapRaw, CapRef, CapRights, ObjType};
 use crate::objects::frame::{FrameCap, FrameSize};
 use crate::objects::tcb::Tcb;
+use crate::objects::{CapRaw, CapRef, CapRights, ObjType};
 use crate::vspace::{Table, VMAttributes};
 
 pub type Asid = u16;
@@ -125,7 +125,8 @@ impl VSpaceCap<'_> {
             return Ok(WalkResult::NotMapped { level: 4 });
         }
 
-        let pdpt: &mut Table<Pdpt> = Table::from_paddr::<OFFSET>(pml4e.paddr());
+        let pdpt: &mut Table<Pdpt> =
+            Table::from_paddr::<OFFSET>(pml4e.paddr());
         let pdpte = &pdpt[pdpt_idx];
 
         if !pdpte.is_present() {
@@ -198,7 +199,8 @@ impl VSpaceCap<'_> {
             return Err(VSpaceError::MissingTable);
         }
 
-        let pdpt: &mut Table<Pdpt> = Table::from_paddr::<OFFSET>(pml4e.paddr());
+        let pdpt: &mut Table<Pdpt> =
+            Table::from_paddr::<OFFSET>(pml4e.paddr());
         let pdpte = &pdpt[pdpt_idx];
 
         if !pdpte.is_present() {
@@ -262,7 +264,8 @@ impl VSpaceCap<'_> {
             return Err(VSpaceError::MissingTable);
         }
 
-        let pdpt: &mut Table<Pdpt> = Table::from_paddr::<OFFSET>(pml4e.paddr());
+        let pdpt: &mut Table<Pdpt> =
+            Table::from_paddr::<OFFSET>(pml4e.paddr());
         let pdpte = &pdpt[pdpt_idx];
 
         if !pdpte.is_present() {
@@ -315,7 +318,8 @@ impl VSpaceCap<'_> {
             return Err(VSpaceError::MissingTable);
         }
 
-        let pdpt: &mut Table<Pdpt> = Table::from_paddr::<OFFSET>(pml4e.paddr());
+        let pdpt: &mut Table<Pdpt> =
+            Table::from_paddr::<OFFSET>(pml4e.paddr());
         let pdpte = &mut pdpt[pdpt_idx];
 
         if pdpte.is_present() {
@@ -338,8 +342,12 @@ impl VSpaceCap<'_> {
         let attr = frame.vm_attributes(user);
 
         match frame.size() {
-            FrameSize::Small => self.map_4k::<OFFSET>(vaddr, frame_paddr, attr),
-            FrameSize::Large => self.map_2m::<OFFSET>(vaddr, frame_paddr, attr),
+            FrameSize::Small => {
+                self.map_4k::<OFFSET>(vaddr, frame_paddr, attr)
+            },
+            FrameSize::Large => {
+                self.map_2m::<OFFSET>(vaddr, frame_paddr, attr)
+            },
             FrameSize::Huge => self.map_1g::<OFFSET>(vaddr, frame_paddr, attr),
         }
     }
@@ -362,7 +370,8 @@ impl VSpaceCap<'_> {
             return Err(VSpaceError::NotMapped);
         }
 
-        let pdpt: &mut Table<Pdpt> = Table::from_paddr::<OFFSET>(pml4e.paddr());
+        let pdpt: &mut Table<Pdpt> =
+            Table::from_paddr::<OFFSET>(pml4e.paddr());
         let pdpte = &mut pdpt[pdpt_idx];
 
         if !pdpte.is_present() {

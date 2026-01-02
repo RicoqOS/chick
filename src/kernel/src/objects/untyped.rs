@@ -1,12 +1,12 @@
 //! Untyped memory objects and retype operations.
 
 use crate::error::{Result, SysError};
-use crate::objects::capability::*;
 use crate::objects::cnode::{CNODE_ENTRY_BIT_SZ, CNodeEntry, CNodeObj};
 use crate::objects::frame::{FrameObj, FrameSize};
 use crate::objects::nullcap::NullCap;
 use crate::objects::tcb::Tcb;
 use crate::objects::vspace::VSpaceCap;
+use crate::objects::{CapRaw, CapRef, CapRights, ObjType};
 use crate::vspace::PAGE_BITS_4K;
 use crate::{alignup, mask};
 
@@ -64,7 +64,10 @@ impl CapRef<'_, UntypedObj> {
         }
     }
 
-    const fn object_size(obj_type: ObjType, user_bits: usize) -> Option<usize> {
+    const fn object_size(
+        obj_type: ObjType,
+        user_bits: usize,
+    ) -> Option<usize> {
         match obj_type {
             ObjType::Frame => match user_bits {
                 12 | 21 | 30 => Some(1 << user_bits),
@@ -128,9 +131,11 @@ impl CapRef<'_, UntypedObj> {
         for (i, slot) in slots.iter().enumerate() {
             let addr = base_paddr + free_offset + i * obj_size;
             let cap = match obj_type {
-                ObjType::Untyped => {
-                    CapRef::<UntypedObj>::mint(addr, bit_size, self.is_device())
-                },
+                ObjType::Untyped => CapRef::<UntypedObj>::mint(
+                    addr,
+                    bit_size,
+                    self.is_device(),
+                ),
                 ObjType::CNode => {
                     let radix_sz = bit_size.saturating_sub(CNODE_ENTRY_BIT_SZ);
                     let guard_bits = 64usize.saturating_sub(radix_sz);

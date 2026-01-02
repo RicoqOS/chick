@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use core::ptr::NonNull;
 
 use crate::error::{Result, SysError};
-use crate::objects::capability::ObjType;
+use crate::objects::ObjType;
 use crate::objects::cnode::{CNODE_DEPTH, CNodeCap, CNodeEntry};
 use crate::objects::tcb::Tcb;
 
@@ -123,7 +123,8 @@ impl<'a> CSpace<'a> {
                 (cptr >> (n_bits - level_bits)) & mask!(radix_bits)
             };
 
-            let slot = cap.as_object().get(index).ok_or(SysError::SlotEmpty)?;
+            let slot =
+                cap.as_object().get(index).ok_or(SysError::SlotEmpty)?;
 
             // Terminal case: all bits resolved at this level.
             if n_bits == level_bits {

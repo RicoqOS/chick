@@ -5,8 +5,8 @@ use core::ptr::NonNull;
 use crate::arch::trapframe::TrapFrame;
 use crate::cspace::CSpace;
 use crate::error::Result;
-use crate::objects::capability::{CapRaw, CapRef, ObjType};
 use crate::objects::cnode::CNodeEntry;
+use crate::objects::{CapRaw, CapRef, ObjType};
 
 #[derive(Debug)]
 pub enum FaultInfo {

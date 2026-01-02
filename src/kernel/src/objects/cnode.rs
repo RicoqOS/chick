@@ -6,8 +6,8 @@ use core::ptr::NonNull;
 use core::slice;
 
 use crate::error::{Result as SysResult, SysError};
-use crate::objects::capability::{CapRaw, CapRef, CapRights, ObjType};
 use crate::objects::traits::KernelObject;
+use crate::objects::{CapRaw, CapRef, CapRights, ObjType};
 
 /// Maximum logical depth of [`CSpace`] (number of cap address bits).
 pub const CNODE_DEPTH: usize = 32;
@@ -135,7 +135,9 @@ impl CNodeCap<'_> {
     pub fn as_object_mut(&self) -> &'static mut CNodeObj {
         let raw = self.get_raw();
         let size = 1usize << self.radix_bits();
-        unsafe { slice::from_raw_parts_mut(raw.paddr as *mut CNodeEntry, size) }
+        unsafe {
+            slice::from_raw_parts_mut(raw.paddr as *mut CNodeEntry, size)
+        }
     }
 
     pub fn guard_bits(&self) -> usize {
@@ -170,8 +172,8 @@ impl CNodeCap<'_> {
 
         assert!(radix_sz + guard_sz <= CNODE_DEPTH);
 
-        let arg1 =
-            (guard_sz << Self::GUARD_OFFSET) | (radix_sz << Self::RADIX_OFFSET);
+        let arg1 = (guard_sz << Self::GUARD_OFFSET) |
+            (radix_sz << Self::RADIX_OFFSET);
 
         let mut capraw = CapRaw::default_with_type(ObjType::CNode);
         capraw.paddr = addr;

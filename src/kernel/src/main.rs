@@ -3,7 +3,7 @@
 //! it ensures secure multitasking and prevents unauthorized access.
 #![no_std]
 #![no_main]
-#![feature(abi_x86_interrupt, associated_const_equality)]
+#![feature(abi_x86_interrupt)]
 #![allow(unsafe_op_in_unsafe_fn, dead_code)]
 
 mod arch;

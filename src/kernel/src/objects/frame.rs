@@ -2,8 +2,8 @@
 
 use crate::error::{Result, SysError};
 use crate::mask;
-use crate::objects::capability::{CapRaw, CapRef, CapRights, ObjType};
 use crate::objects::tcb::Tcb;
+use crate::objects::{CapRaw, CapRef, CapRights, ObjType};
 use crate::vspace::{CachePolicy, VMAttributes, VMRights};
 
 /// Frame size variants supported by the architecture.
@@ -124,8 +124,8 @@ impl FrameCap<'_> {
     #[inline]
     pub fn size(&self) -> FrameSize {
         let raw = self.raw.get();
-        let bits =
-            (raw.arg1 >> Self::SIZE_BITS_OFFSET) & mask!(Self::SIZE_BITS_WIDTH);
+        let bits = (raw.arg1 >> Self::SIZE_BITS_OFFSET) &
+            mask!(Self::SIZE_BITS_WIDTH);
         FrameSize::from_bits(bits).unwrap_or(FrameSize::Small)
     }
 

@@ -4,9 +4,9 @@ use core::marker::PhantomData;
 
 use vstd::prelude::*;
 
-use crate::objects::capability::{CapRaw, CapRef};
 use crate::objects::tcb::Tcb;
 use crate::objects::traits::KernelObject;
+use crate::objects::{CapRaw, CapRef};
 
 verus! {
 
