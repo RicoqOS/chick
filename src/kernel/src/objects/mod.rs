@@ -1,5 +1,4 @@
 //! seL4-like capabilities objects.
-
 pub mod cnode;
 pub mod frame;
 pub mod nullcap;
@@ -11,9 +10,13 @@ pub mod vspace;
 use core::marker::PhantomData;
 use core::ptr::NonNull;
 
+use vstd::prelude::*;
+
 use crate::arch::PhysAddr;
 use crate::objects::cnode::CNodeEntry;
 use crate::objects::traits::KernelObject;
+
+verus! {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -45,6 +48,27 @@ bitflags::bitflags! {
     }
 }
 
+impl CapRights {
+    pub open spec fn includes(self, other: Self) -> bool {
+        (self.0 & other.0) == other.0
+    }
+
+    pub proof fn reflexive(self)
+        ensures
+            self.includes(self),
+    {
+    }
+
+    pub proof fn transitive(a: Self, b: Self, c: Self)
+        requires
+            a.includes(b),
+            b.includes(c),
+        ensures
+            a.includes(c),
+    {
+    }
+}
+
 /// Capability entry field definition.
 #[derive(Debug, Clone, Copy)]
 pub struct CapRef<'a, T: KernelObject + ?Sized> {
@@ -52,9 +76,18 @@ pub struct CapRef<'a, T: KernelObject + ?Sized> {
     pub cap_type: PhantomData<T>,
 }
 
+pub open spec fn cap_type_matches<T: KernelObject + ?Sized>(raw: CapRaw) -> bool {
+    T::OBJ_TYPE == raw.cap_type
+}
+
 impl<T: KernelObject + ?Sized> CapRef<'_, T> {
-    pub fn cap_type(&self) -> ObjType {
-        debug_assert_eq!(T::OBJ_TYPE, self.raw.get().cap_type);
+    pub fn cap_type(&self) -> (result: ObjType)
+        requires
+            cap_type_matches::<T>(self.raw@),
+        ensures
+            result == T::OBJ_TYPE,
+            result == self.raw@.cap_type,
+    {
         T::OBJ_TYPE
     }
 
@@ -101,3 +134,5 @@ impl CapRaw {
         capraw
     }
 }
+
+} // verus!
