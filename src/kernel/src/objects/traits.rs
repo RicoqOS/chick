@@ -2,6 +2,7 @@
 
 use crate::objects::ObjType;
 use crate::objects::cnode::CNodeObj;
+use crate::objects::endpoint::EndpointObj;
 use crate::objects::frame::FrameObj;
 use crate::objects::nullcap::NullObj;
 use crate::objects::tcb::Tcb;
@@ -30,6 +31,10 @@ impl KernelObject for FrameObj {
 
 impl KernelObject for VSpaceObj {
     const OBJ_TYPE: ObjType = ObjType::VSpace;
+}
+
+impl KernelObject for EndpointObj {
+    const OBJ_TYPE: ObjType = ObjType::Endpoint;
 }
 
 impl KernelObject for Tcb {

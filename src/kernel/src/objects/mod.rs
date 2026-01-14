@@ -1,5 +1,7 @@
 //! seL4-like capabilities objects.
+
 pub mod cnode;
+pub mod endpoint;
 pub mod frame;
 pub mod nullcap;
 pub mod tcb;
