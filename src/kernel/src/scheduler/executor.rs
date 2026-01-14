@@ -47,7 +47,7 @@ impl Executor {
     }
 
     pub unsafe fn set_idle(&mut self, tcb: NonNull<Tcb>) {
-        (*tcb.as_ptr()).state = ThreadState::Ready;
+        (*tcb.as_ptr()).state = ThreadState::Inactive;
         self.idle = Some(tcb);
     }
 
@@ -61,14 +61,14 @@ impl Executor {
         }
     }
 
-    /// Insert a [`ThreadState::Ready`] [`Tcb`] in queue.
+    /// Insert a [`ThreadState::Inactive`] [`Tcb`] in queue.
     pub unsafe fn enqueue(
         &mut self,
         tcb: NonNull<Tcb>,
     ) -> Result<(), SchedError> {
         let tcb_ref = tcb.as_ref();
 
-        if tcb_ref.state != ThreadState::Ready {
+        if tcb_ref.state != ThreadState::Inactive {
             return Err(SchedError::InvalidState);
         }
 
@@ -93,7 +93,7 @@ impl Executor {
         if let Some(cur) = self.current.take() {
             let cur_tcb = cur.tcb.as_ptr();
             if (*cur_tcb).state == ThreadState::Running {
-                (*cur_tcb).state = ThreadState::Ready;
+                (*cur_tcb).state = ThreadState::Inactive;
                 self.ready.push(cur).expect("ready queue overflow");
             }
         }
@@ -105,7 +105,7 @@ impl Executor {
         (*tcb).context.restore()
     }
 
-    /// Called from timer interrupt
+    /// Called from timer interrupt.
     pub unsafe fn preempt(&mut self) {
         if !self.should_preempt() {
             return;
@@ -118,7 +118,7 @@ impl Executor {
     pub unsafe fn yield_current(&mut self) -> ! {
         if let Some(cur) = self.current.take() {
             let tcb = cur.tcb.as_ptr();
-            (*tcb).state = ThreadState::Ready;
+            (*tcb).state = ThreadState::Inactive;
             self.ready.push(cur).expect("ready queue overflow");
         }
 
@@ -159,7 +159,7 @@ impl Executor {
             return Err(SchedError::InvalidState);
         }
 
-        (*tcb.as_ptr()).state = ThreadState::Ready;
+        (*tcb.as_ptr()).state = ThreadState::Inactive;
         self.enqueue(tcb)
     }
 
