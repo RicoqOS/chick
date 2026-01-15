@@ -126,8 +126,8 @@ unsafe fn do_ipc_transfer(
 
     // Transfer message registers.
     for i in 0..4 {
-        let val = sender_ref.get_mr(Tcb::MR0 + i);
-        (*receiver_ptr).set_mr(Tcb::MR0 + i, val);
+        let val = sender_ref.get_mr(Tcb::MR1 + i);
+        (*receiver_ptr).set_mr(Tcb::MR1 + i, val);
     }
 
     // TODO: Handle capability transfer if can_grant is true.
