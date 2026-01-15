@@ -24,7 +24,6 @@ pub enum SchedError {
     NotFound,
 }
 
-/// Per-core EDF executor
 #[derive(Default)]
 pub struct Executor {
     ready: BinaryHeap<Entry, Min, MAX_TCB_PER_CORE>,
@@ -32,7 +31,7 @@ pub struct Executor {
     idle: Option<NonNull<Tcb>>,
 }
 
-// SAFETY: executor is per-core, interrupts disabled during mutation
+// SAFETY: executor is per-core, interrupts are disabled.
 unsafe impl Send for Executor {}
 
 impl Executor {
@@ -105,8 +104,21 @@ impl Executor {
         (*tcb).context.restore()
     }
 
+    #[inline]
+    unsafe fn inc_tick(&mut self) {
+        if let Some(current_entry) = self.current {
+            let tcb = current_entry.tcb.as_ptr();
+            if let Some(mut sched) = (*tcb).sched_context {
+                let ptr = sched.as_mut();
+                ptr.ticks_consumed += 1;
+            }
+        }
+    }
+
     /// Called from timer interrupt.
     pub unsafe fn preempt(&mut self) {
+        self.inc_tick();
+
         if !self.should_preempt() {
             return;
         }
@@ -115,7 +127,7 @@ impl Executor {
         self.context_switch(next);
     }
 
-    pub unsafe fn yield_current(&mut self) -> ! {
+    unsafe fn yield_current(&mut self) -> ! {
         if let Some(cur) = self.current.take() {
             let tcb = cur.tcb.as_ptr();
             (*tcb).state = ThreadState::Inactive;
@@ -125,7 +137,7 @@ impl Executor {
         self.schedule()
     }
 
-    pub unsafe fn block_current(&mut self, state: ThreadState) -> ! {
+    unsafe fn block_current(&mut self, state: ThreadState) -> ! {
         let valid = matches!(
             state,
             ThreadState::BlockedOnReceive |
@@ -143,6 +155,7 @@ impl Executor {
         self.schedule()
     }
 
+    /// Append a [`Tcb`] on queue.
     pub unsafe fn wake(
         &mut self,
         tcb: NonNull<Tcb>,

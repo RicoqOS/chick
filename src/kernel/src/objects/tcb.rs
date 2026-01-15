@@ -118,7 +118,7 @@ pub struct SchedContext {
 
     /// Amount of ticks scheduled for since seL4_SchedContext_Consumed
     /// was last called or a timeout exception fired.
-    ticks_consumed: usize,
+    pub ticks_consumed: usize,
 
     /// Deadline for RTOS.
     pub deadline: u64,
