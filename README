@@ -9,10 +9,12 @@ Core features:
     * Real-Time Scheduling: implements a partitioned per-core EDF scheduler.
         It uses a static binary min-priority queue (O(log n) inserts/deletes,
         O(1) peek) supporting up to 64 TCBs per core.
-    * Transition: currently features a framebuffer console, soon to be
-        deprecated in favor of a UART serial driver for minimal overhead.
 
+Currently features a framebuffer console, soon to be deprecated in favor of a
+UART serial driver for minimal overhead.
 
+Kernel objetcs are partially mathematically verified using (Microsoft) Verus.
 
 Note: this microkernel is a research project and is not intended for production
-use.
+use. Project retains most of the structures from seL4, adapted to the Rust
+language, but simplifies other mechanisms.
